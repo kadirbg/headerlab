@@ -1,0 +1,165 @@
+---
+interface Props {
+  title: string;
+  description: string;
+  canonical?: string;
+}
+
+const { title, description, canonical } = Astro.props;
+const siteUrl = "https://headerlab.dev";
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="generator" content={Astro.generator} />
+    <meta name="description" content={description} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="canonical" href={canonical ?? siteUrl} />
+
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+
+    <title>{title}</title>
+  </head>
+  <body>
+    <header class="site-header">
+      <nav>
+        <a href="/" class="logo">
+          <span class="logo-bracket">[</span><span class="logo-text">HeaderLab</span><span class="logo-bracket">]</span>
+        </a>
+        <ul class="nav-links">
+          <li><a href="/headers">Headers Checker</a></li>
+          <li><a href="https://github.com/kadirbg/headerlab" target="_blank" rel="noopener">GitHub</a></li>
+        </ul>
+      </nav>
+    </header>
+
+    <main>
+      <slot />
+    </main>
+
+    <footer class="site-footer">
+      <p>HeaderLab — Free, privacy-first web security tools.</p>
+      <p><a href="https://github.com/kadirbg/headerlab">Open source on GitHub</a></p>
+    </footer>
+
+    <style is:global>
+      *, *::before, *::after { box-sizing: border-box; }
+
+      :root {
+        --bg: #0a0e1a;
+        --bg-elev: #111827;
+        --bg-elev-2: #1a2233;
+        --border: #1f2937;
+        --text: #e5e7eb;
+        --text-dim: #9ca3af;
+        --text-faint: #6b7280;
+        --accent: #38bdf8;
+        --accent-bright: #7dd3fc;
+        --success: #10b981;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+        --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+        --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+      }
+
+      html {
+        font-family: var(--font-sans);
+        background: var(--bg);
+        color: var(--text);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      main {
+        flex: 1;
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 2rem 1.5rem;
+        width: 100%;
+      }
+
+      .site-header {
+        border-bottom: 1px solid var(--border);
+      }
+
+      .site-header nav {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 1rem 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+      }
+
+      .logo {
+        font-family: var(--font-mono);
+        font-size: 1.1rem;
+        font-weight: 600;
+        text-decoration: none;
+        color: var(--text);
+      }
+
+      .logo-bracket {
+        color: var(--accent);
+      }
+
+      .nav-links {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        gap: 1.5rem;
+      }
+
+      .nav-links a {
+        color: var(--text-dim);
+        text-decoration: none;
+        font-size: 0.95rem;
+        transition: color 0.15s;
+      }
+
+      .nav-links a:hover {
+        color: var(--accent);
+      }
+
+      .site-footer {
+        border-top: 1px solid var(--border);
+        padding: 2rem 1.5rem;
+        text-align: center;
+        font-size: 0.85rem;
+        color: var(--text-faint);
+      }
+
+      .site-footer p { margin: 0.25rem 0; }
+      .site-footer a { color: var(--text-dim); }
+
+      h1, h2, h3 { margin-top: 0; }
+      a { color: var(--accent); }
+
+      code {
+        font-family: var(--font-mono);
+        background: var(--bg-elev);
+        padding: 0.15rem 0.4rem;
+        border-radius: 4px;
+        font-size: 0.9em;
+      }
+    </style>
+  </body>
+</html>

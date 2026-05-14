@@ -1,11 +1,168 @@
 ---
-import Welcome from '../components/Welcome.astro';
-import Layout from '../layouts/Layout.astro';
+import Layout from '../components/Layout.astro';
 
-// Welcome to Astro! Wondering what to do next? Check out the Astro documentation at https://docs.astro.build
-// Don't want to use any of this? Delete everything in this file, the `assets`, `components`, and `layouts` directories, and start fresh.
+const tools = [
+  {
+    name: 'HTTP Security Headers Checker',
+    slug: 'headers',
+    description: 'Inspect any URL for missing security headers. Get severity-ranked issues and copyable fix snippets.',
+    status: 'available',
+    tags: ['Headers', 'HTTPS', 'Web Security']
+  },
+  {
+    name: 'CSP Builder',
+    slug: 'csp',
+    description: 'Build a strict Content Security Policy with a visual editor. Test against your site.',
+    status: 'coming-soon',
+    tags: ['CSP', 'XSS']
+  },
+  {
+    name: 'JWT Decoder',
+    slug: 'jwt',
+    description: 'Decode and inspect JSON Web Tokens. Verify signatures and analyze claims.',
+    status: 'coming-soon',
+    tags: ['JWT', 'Auth']
+  },
+  {
+    name: 'IP & WHOIS Analyzer',
+    slug: 'ip',
+    description: 'Geolocation, ASN, WHOIS records, and VPN/proxy detection for any IP address.',
+    status: 'coming-soon',
+    tags: ['Network', 'OSINT']
+  },
+];
 ---
 
-<Layout>
-	<Welcome />
+<Layout
+  title="HeaderLab — Modern Web Security Toolkit"
+  description="Free, privacy-first security tools for developers and engineers. HTTP headers checker, CSP builder, JWT decoder, and more."
+>
+  <section class="hero">
+    <h1>
+      Web security tools<br />
+      <span class="accent">that don't suck.</span>
+    </h1>
+    <p class="lead">
+      Free, fast, privacy-first. Built for developers and security engineers.
+      Everything runs in your browser or as a one-shot scan — we never store your data.
+    </p>
+  </section>
+
+  <section class="tools-grid">
+    {tools.map((tool) => (
+      tool.status === 'available' ? (
+        <a href={`/${tool.slug}`} class="tool-card">
+          <div class="tool-tags">
+            {tool.tags.map((tag) => <span class="tag">{tag}</span>)}
+          </div>
+          <h2>{tool.name}</h2>
+          <p>{tool.description}</p>
+          <span class="cta">Open tool →</span>
+        </a>
+      ) : (
+        <div class="tool-card disabled">
+          <div class="tool-tags">
+            {tool.tags.map((tag) => <span class="tag">{tag}</span>)}
+            <span class="badge">Coming soon</span>
+          </div>
+          <h2>{tool.name}</h2>
+          <p>{tool.description}</p>
+        </div>
+      )
+    ))}
+  </section>
 </Layout>
+
+<style>
+  .hero {
+    padding: 3rem 0 2rem;
+    text-align: center;
+  }
+
+  .hero h1 {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    line-height: 1.1;
+    margin: 0 0 1rem;
+    letter-spacing: -0.02em;
+  }
+
+  .hero .accent { color: var(--accent); }
+
+  .lead {
+    font-size: 1.1rem;
+    color: var(--text-dim);
+    max-width: 600px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  .tools-grid {
+    margin-top: 3rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1rem;
+  }
+
+  .tool-card {
+    display: block;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.15s, transform 0.15s;
+  }
+
+  .tool-card:not(.disabled):hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+  }
+
+  .tool-card.disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  .tool-card h2 {
+    font-size: 1.15rem;
+    margin: 0.75rem 0 0.5rem;
+  }
+
+  .tool-card p {
+    font-size: 0.95rem;
+    color: var(--text-dim);
+    line-height: 1.5;
+    margin: 0 0 1rem;
+  }
+
+  .tool-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .tag {
+    font-size: 0.75rem;
+    color: var(--text-faint);
+    background: var(--bg-elev-2);
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+  }
+
+  .badge {
+    font-size: 0.7rem;
+    color: var(--warning);
+    background: rgba(245, 158, 11, 0.1);
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+  }
+
+  .cta {
+    color: var(--accent);
+    font-size: 0.9rem;
+    font-weight: 500;
+  }
+</style>

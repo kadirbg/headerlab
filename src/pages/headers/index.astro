@@ -1,0 +1,118 @@
+---
+import Layout from '../../components/Layout.astro';
+---
+
+<Layout
+  title="HTTP Security Headers Checker — HeaderLab"
+  description="Check any URL for security headers like Strict-Transport-Security, Content-Security-Policy, X-Frame-Options. Get severity-ranked issues and copyable fix snippets."
+>
+  <section class="tool-header">
+    <a href="/" class="back-link">← All tools</a>
+    <h1>HTTP Security Headers Checker</h1>
+    <p class="lead">
+      Inspect any public URL for missing or misconfigured security headers.
+      Get severity-ranked issues and copyable fix snippets for Nginx, Apache, and Cloudflare.
+    </p>
+  </section>
+
+  <section class="checker-form">
+    <form id="checker-form">
+      <div class="input-group">
+        <input
+          type="url"
+          id="url-input"
+          name="url"
+          placeholder="https://example.com"
+          required
+          autocomplete="off"
+        />
+        <button type="submit" id="scan-btn">Scan</button>
+      </div>
+      <p class="form-hint">
+        Enter a public URL. We'll fetch its response headers and analyze them.
+      </p>
+    </form>
+  </section>
+
+  <section id="results" class="results-placeholder">
+    <p>Scan a URL above to see results. Analysis engine coming in the next build step.</p>
+  </section>
+</Layout>
+
+<style>
+  .tool-header { padding: 2rem 0 1rem; }
+
+  .back-link {
+    color: var(--text-faint);
+    text-decoration: none;
+    font-size: 0.9rem;
+  }
+
+  .back-link:hover { color: var(--accent); }
+
+  .tool-header h1 {
+    font-size: 2rem;
+    margin: 1rem 0 0.5rem;
+  }
+
+  .lead {
+    color: var(--text-dim);
+    line-height: 1.6;
+    max-width: 700px;
+  }
+
+  .checker-form { margin: 2rem 0; }
+
+  .input-group {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  #url-input {
+    flex: 1;
+    min-width: 200px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.85rem 1rem;
+    color: var(--text);
+    font-size: 1rem;
+    font-family: var(--font-mono);
+  }
+
+  #url-input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  #scan-btn {
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    border-radius: 8px;
+    padding: 0.85rem 1.5rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background 0.15s;
+  }
+
+  #scan-btn:hover { background: var(--accent-bright); }
+
+  .form-hint {
+    font-size: 0.85rem;
+    color: var(--text-faint);
+    margin: 0.5rem 0 0;
+  }
+
+  .results-placeholder {
+    margin-top: 2rem;
+    padding: 2rem 1.5rem;
+    background: var(--bg-elev);
+    border: 1px dashed var(--border);
+    border-radius: 12px;
+    text-align: center;
+    color: var(--text-faint);
+  }
+</style>
