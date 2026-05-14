@@ -1,4 +1,5 @@
 ---
+export const prerender = true;
 import Layout from '../../components/Layout.astro';
 ---
 
@@ -11,7 +12,7 @@ import Layout from '../../components/Layout.astro';
     <h1>HTTP Security Headers Checker</h1>
     <p class="lead">
       Inspect any public URL for missing or misconfigured security headers.
-      Get severity-ranked issues and copyable fix snippets for Nginx, Apache, and Cloudflare.
+      Get severity-ranked issues with explanations and recommendations.
     </p>
   </section>
 
@@ -29,90 +30,237 @@ import Layout from '../../components/Layout.astro';
         <button type="submit" id="scan-btn">Scan</button>
       </div>
       <p class="form-hint">
-        Enter a public URL. We'll fetch its response headers and analyze them.
+        Enter a public URL. We fetch its response headers and analyze them against OWASP best practices.
       </p>
     </form>
   </section>
 
-  <section id="results" class="results-placeholder">
-    <p>Scan a URL above to see results. Analysis engine coming in the next build step.</p>
-  </section>
+  <section id="results" class="results" hidden></section>
 </Layout>
+
+<script>
+  const form = document.getElementById('checker-form') as HTMLFormElement;
+  const input = document.getElementById('url-input') as HTMLInputElement;
+  const btn = document.getElementById('scan-btn') as HTMLButtonElement;
+  const results = document.getElementById('results') as HTMLElement;
+
+  type Severity = 'critical' | 'high' | 'medium' | 'low';
+  type Status = 'pass' | 'fail' | 'warn';
+
+  interface HeaderCheck {
+    id: string; name: string; present: boolean; value: string | null;
+    severity: Severity; status: Status;
+    description: string; recommendation: string; reference: string;
+  }
+  interface Analysis {
+    score: number; grade: string; checks: HeaderCheck[];
+    summary: { pass: number; fail: number; warn: number };
+  }
+  interface ApiResponse {
+    url: string; status: number; headers: Record<string, string>; analysis: Analysis;
+  }
+
+  function escapeHtml(s: string) {
+    return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+  }
+
+  function renderResults(data: ApiResponse) {
+    const { analysis } = data;
+    const gradeClass = analysis.grade.startsWith('A') ? 'grade-a'
+                     : analysis.grade === 'B' ? 'grade-b'
+                     : analysis.grade === 'C' ? 'grade-c'
+                     : 'grade-f';
+
+    const checksHtml = analysis.checks.map(c => `
+      <article class="check check-${c.status}">
+        <header class="check-header">
+          <span class="check-icon">${c.status === 'pass' ? '✓' : c.status === 'warn' ? '!' : '✗'}</span>
+          <div class="check-meta">
+            <h3>${escapeHtml(c.name)}</h3>
+            <span class="severity sev-${c.severity}">${c.severity}</span>
+          </div>
+        </header>
+        <p class="check-desc">${escapeHtml(c.description)}</p>
+        ${c.present
+          ? `<div class="check-value"><span class="label">Value:</span> <code>${escapeHtml(c.value!)}</code></div>`
+          : `<div class="check-value missing">Header not present</div>`}
+        ${c.status !== 'pass'
+          ? `<div class="check-recommendation"><strong>Recommendation:</strong> ${escapeHtml(c.recommendation)}</div>`
+          : ''}
+        <a href="${c.reference}" target="_blank" rel="noopener" class="check-ref">MDN reference →</a>
+      </article>
+    `).join('');
+
+    results.innerHTML = `
+      <div class="result-summary">
+        <div class="grade-block ${gradeClass}">
+          <div class="grade">${analysis.grade}</div>
+          <div class="score">${analysis.score}/100</div>
+        </div>
+        <div class="summary-meta">
+          <p class="scanned-url"><strong>Scanned:</strong> <code>${escapeHtml(data.url)}</code></p>
+          <p class="response-status"><strong>Response:</strong> HTTP ${data.status}</p>
+          <p class="summary-counts">
+            <span class="count-pass">${analysis.summary.pass} pass</span>
+            <span class="count-warn">${analysis.summary.warn} warn</span>
+            <span class="count-fail">${analysis.summary.fail} fail</span>
+          </p>
+        </div>
+      </div>
+      <div class="checks-list">${checksHtml}</div>
+    `;
+    results.hidden = false;
+  }
+
+  function renderError(message: string) {
+    results.innerHTML = `<div class="error-box"><strong>Error:</strong> ${escapeHtml(message)}</div>`;
+    results.hidden = false;
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const url = input.value.trim();
+    if (!url) return;
+
+    btn.disabled = true;
+    btn.textContent = 'Scanning...';
+    results.hidden = true;
+
+    try {
+      const res = await fetch('/api/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        renderError(data.error || `Request failed (${res.status})`);
+      } else {
+        renderResults(data);
+      }
+    } catch (err: any) {
+      renderError(err.message || 'Network error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Scan';
+    }
+  });
+</script>
 
 <style>
   .tool-header { padding: 2rem 0 1rem; }
-
-  .back-link {
-    color: var(--text-faint);
-    text-decoration: none;
-    font-size: 0.9rem;
-  }
-
+  .back-link { color: var(--text-faint); text-decoration: none; font-size: 0.9rem; }
   .back-link:hover { color: var(--accent); }
-
-  .tool-header h1 {
-    font-size: 2rem;
-    margin: 1rem 0 0.5rem;
-  }
-
-  .lead {
-    color: var(--text-dim);
-    line-height: 1.6;
-    max-width: 700px;
-  }
+  .tool-header h1 { font-size: 2rem; margin: 1rem 0 0.5rem; }
+  .lead { color: var(--text-dim); line-height: 1.6; max-width: 700px; }
 
   .checker-form { margin: 2rem 0; }
+  .input-group { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 
-  .input-group {
-    display: flex;
-    gap: 0.5rem;
+  #url-input {
+    flex: 1; min-width: 200px;
+    background: var(--bg-elev); border: 1px solid var(--border);
+    border-radius: 8px; padding: 0.85rem 1rem;
+    color: var(--text); font-size: 1rem; font-family: var(--font-mono);
+  }
+  #url-input:focus { outline: none; border-color: var(--accent); }
+
+  #scan-btn {
+    background: var(--accent); color: var(--bg); border: none;
+    border-radius: 8px; padding: 0.85rem 1.5rem;
+    font-weight: 600; cursor: pointer; font-size: 1rem;
+    transition: background 0.15s;
+  }
+  #scan-btn:hover { background: var(--accent-bright); }
+  #scan-btn:disabled { opacity: 0.6; cursor: wait; }
+
+  .form-hint { font-size: 0.85rem; color: var(--text-faint); margin: 0.5rem 0 0; }
+
+  .results { margin-top: 2rem; }
+
+  .result-summary {
+    display: flex; gap: 1.5rem; align-items: center;
+    background: var(--bg-elev); border: 1px solid var(--border);
+    border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem;
     flex-wrap: wrap;
   }
 
-  #url-input {
-    flex: 1;
-    min-width: 200px;
-    background: var(--bg-elev);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 0.85rem 1rem;
-    color: var(--text);
-    font-size: 1rem;
-    font-family: var(--font-mono);
+  .grade-block {
+    text-align: center; padding: 1rem 1.5rem;
+    border-radius: 10px; min-width: 110px;
+  }
+  .grade-block.grade-a { background: rgba(16, 185, 129, 0.1); color: var(--success); }
+  .grade-block.grade-b { background: rgba(56, 189, 248, 0.1); color: var(--accent); }
+  .grade-block.grade-c { background: rgba(245, 158, 11, 0.1); color: var(--warning); }
+  .grade-block.grade-f { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
+
+  .grade { font-size: 2.5rem; font-weight: 700; line-height: 1; font-family: var(--font-mono); }
+  .score { font-size: 0.85rem; color: var(--text-dim); margin-top: 0.25rem; }
+
+  .summary-meta { flex: 1; min-width: 250px; }
+  .summary-meta p { margin: 0.25rem 0; font-size: 0.9rem; color: var(--text-dim); }
+  .summary-meta code { word-break: break-all; }
+
+  .summary-counts { display: flex; gap: 1rem; font-family: var(--font-mono); }
+  .count-pass { color: var(--success); }
+  .count-warn { color: var(--warning); }
+  .count-fail { color: var(--danger); }
+
+  .checks-list { display: flex; flex-direction: column; gap: 0.75rem; }
+
+  .check {
+    background: var(--bg-elev); border: 1px solid var(--border);
+    border-left-width: 4px; border-radius: 8px; padding: 1.25rem;
+  }
+  .check-pass { border-left-color: var(--success); }
+  .check-warn { border-left-color: var(--warning); }
+  .check-fail { border-left-color: var(--danger); }
+
+  .check-header {
+    display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;
+  }
+  .check-icon {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 0.9rem;
+  }
+  .check-pass .check-icon { background: var(--success); color: var(--bg); }
+  .check-warn .check-icon { background: var(--warning); color: var(--bg); }
+  .check-fail .check-icon { background: var(--danger); color: var(--bg); }
+
+  .check-meta h3 { margin: 0; font-size: 1.05rem; font-family: var(--font-mono); }
+
+  .severity {
+    display: inline-block; font-size: 0.7rem; text-transform: uppercase;
+    padding: 0.15rem 0.5rem; border-radius: 4px; font-family: var(--font-mono);
+    margin-top: 0.25rem;
+  }
+  .sev-critical { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+  .sev-high { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+  .sev-medium { background: rgba(56, 189, 248, 0.15); color: var(--accent); }
+  .sev-low { background: rgba(156, 163, 175, 0.15); color: var(--text-dim); }
+
+  .check-desc { color: var(--text-dim); font-size: 0.95rem; line-height: 1.55; margin: 0.5rem 0; }
+
+  .check-value {
+    background: var(--bg-elev-2); padding: 0.6rem 0.8rem;
+    border-radius: 6px; font-size: 0.85rem; margin: 0.75rem 0;
+  }
+  .check-value .label { color: var(--text-faint); margin-right: 0.5rem; }
+  .check-value code { word-break: break-all; }
+  .check-value.missing { color: var(--text-faint); font-style: italic; }
+
+  .check-recommendation {
+    font-size: 0.9rem; color: var(--text); margin: 0.75rem 0;
+    background: rgba(56, 189, 248, 0.05); padding: 0.75rem;
+    border-radius: 6px; border-left: 2px solid var(--accent);
   }
 
-  #url-input:focus {
-    outline: none;
-    border-color: var(--accent);
-  }
+  .check-ref { font-size: 0.8rem; color: var(--text-faint); text-decoration: none; }
+  .check-ref:hover { color: var(--accent); }
 
-  #scan-btn {
-    background: var(--accent);
-    color: var(--bg);
-    border: none;
-    border-radius: 8px;
-    padding: 0.85rem 1.5rem;
-    font-weight: 600;
-    cursor: pointer;
-    font-size: 1rem;
-    transition: background 0.15s;
-  }
-
-  #scan-btn:hover { background: var(--accent-bright); }
-
-  .form-hint {
-    font-size: 0.85rem;
-    color: var(--text-faint);
-    margin: 0.5rem 0 0;
-  }
-
-  .results-placeholder {
-    margin-top: 2rem;
-    padding: 2rem 1.5rem;
-    background: var(--bg-elev);
-    border: 1px dashed var(--border);
-    border-radius: 12px;
-    text-align: center;
-    color: var(--text-faint);
+  .error-box {
+    background: rgba(239, 68, 68, 0.1); border: 1px solid var(--danger);
+    color: var(--danger); padding: 1rem 1.25rem; border-radius: 8px;
   }
 </style>
