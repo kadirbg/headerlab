@@ -1,0 +1,324 @@
+---
+export const prerender = true;
+import Layout from '../../components/Layout.astro';
+---
+
+<Layout
+  title="CSP Evaluator — Analyze Content Security Policy for Weaknesses | HeaderLab"
+  description="Paste a Content Security Policy and get severity-ranked findings. Detect unsafe-inline, unsafe-eval, wildcard sources, missing critical directives, and known bypass patterns."
+>
+  <section class="tool-header">
+    <a href="/" class="back-link">← All tools</a>
+    <h1>CSP Evaluator</h1>
+    <p class="lead">
+      Paste a Content Security Policy and we'll analyze it for weaknesses,
+      missing directives, and bypasses. Severity-ranked findings with
+      actionable recommendations. Runs entirely in your browser.
+    </p>
+  </section>
+
+  <section class="evaluator-input">
+    <label for="csp-input">Paste your CSP</label>
+    <textarea
+      id="csp-input"
+      placeholder="default-src 'self'; script-src 'self' 'unsafe-inline'; ..."
+      spellcheck="false"
+    ></textarea>
+    <div class="input-actions">
+      <button type="button" id="evaluate-btn">Evaluate</button>
+      <span class="examples-label">Or try an example:</span>
+      <button type="button" class="example-btn" data-example="weak">Weak</button>
+      <button type="button" class="example-btn" data-example="moderate">Moderate</button>
+      <button type="button" class="example-btn" data-example="strict">Strict</button>
+    </div>
+  </section>
+
+  <section id="results" class="evaluator-results" hidden></section>
+</Layout>
+
+<script>
+  import { evaluateCSP } from '../../lib/csp-evaluator';
+
+  const EXAMPLES: Record<string, string> = {
+    weak: "default-src *; script-src * 'unsafe-inline' 'unsafe-eval'; style-src * 'unsafe-inline'",
+    moderate: "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.example.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'",
+    strict: "default-src 'none'; script-src 'self' 'strict-dynamic' 'nonce-r4nd0m'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'"
+  };
+
+  const input = document.getElementById('csp-input') as HTMLTextAreaElement;
+  const btn = document.getElementById('evaluate-btn') as HTMLButtonElement;
+  const results = document.getElementById('results') as HTMLElement;
+
+  function escapeHtml(s: string) {
+    return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+  }
+
+  function evaluate() {
+    const value = input.value.trim();
+    if (!value) {
+      results.hidden = true;
+      return;
+    }
+    const r = evaluateCSP(value);
+    render(r);
+  }
+
+  function render(r: ReturnType<typeof evaluateCSP>) {
+    const { parsed, findings, score, grade, summary } = r;
+
+    const counts: string[] = [];
+    if (summary.critical) counts.push(`<span class="count critical">${summary.critical} critical</span>`);
+    if (summary.high) counts.push(`<span class="count high">${summary.high} high</span>`);
+    if (summary.medium) counts.push(`<span class="count medium">${summary.medium} medium</span>`);
+    if (summary.low) counts.push(`<span class="count low">${summary.low} low</span>`);
+    if (summary.info) counts.push(`<span class="count info">${summary.info} info</span>`);
+    if (counts.length === 0) counts.push('<span class="count pass">No issues — looks solid ✓</span>');
+
+    const gradeClass = grade.replace('+', '-plus');
+
+    const summaryHtml = `
+      <div class="result-summary">
+        <div class="grade-block grade-${gradeClass}">
+          <div class="grade">${grade}</div>
+          <div class="score">${score}/100</div>
+        </div>
+        <div class="summary-meta">
+          <div><strong>Directives:</strong> ${parsed.directives.size}</div>
+          ${parsed.reportOnly ? '<div><strong>Mode:</strong> Report-Only</div>' : ''}
+          <div class="finding-counts">${counts.join('')}</div>
+        </div>
+      </div>
+    `;
+
+    let parsedHtml = '<h2 class="section-title">Parsed directives</h2><div class="parsed-list">';
+    for (const [d, sources] of parsed.directives) {
+      const sourcesText = sources.length > 0 ? escapeHtml(sources.join(' ')) : '<em class="empty">(empty)</em>';
+      parsedHtml += `<div class="parsed-row"><code class="parsed-dir">${escapeHtml(d)}</code><code class="parsed-sources">${sourcesText}</code></div>`;
+    }
+    parsedHtml += '</div>';
+
+    let findingsHtml = '';
+    if (findings.length > 0) {
+      findingsHtml = '<h2 class="section-title">Findings</h2><div class="findings-list">';
+      for (const f of findings) {
+        findingsHtml += `
+          <article class="finding finding-${f.severity}">
+            <header class="finding-header">
+              <span class="severity-badge sev-${f.severity}">${f.severity}</span>
+              <h3>${escapeHtml(f.title)}</h3>
+            </header>
+            ${f.directive ? `<div class="finding-meta">In: <code>${escapeHtml(f.directive)}</code></div>` : ''}
+            <p class="finding-desc">${escapeHtml(f.description)}</p>
+            <div class="finding-rec"><strong>Recommendation:</strong> ${escapeHtml(f.recommendation)}</div>
+          </article>
+        `;
+      }
+      findingsHtml += '</div>';
+    } else {
+      findingsHtml = '<div class="no-findings">No findings — this CSP looks solid. ✓</div>';
+    }
+
+    results.innerHTML = summaryHtml + parsedHtml + findingsHtml;
+    results.hidden = false;
+    results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  btn.addEventListener('click', evaluate);
+
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      evaluate();
+    }
+  });
+
+  document.querySelectorAll('[data-example]').forEach(el => {
+    el.addEventListener('click', () => {
+      const key = el.getAttribute('data-example')!;
+      input.value = EXAMPLES[key];
+      evaluate();
+    });
+  });
+
+  // Auto-load CSP transferred from Headers Checker via sessionStorage
+  try {
+    const pendingCsp = sessionStorage.getItem('csp-to-evaluate');
+    if (pendingCsp) {
+      sessionStorage.removeItem('csp-to-evaluate');
+      input.value = pendingCsp;
+      evaluate();
+    }
+  } catch {
+    // sessionStorage unavailable — ignore
+  }
+</script>
+
+<style is:global>
+  .evaluator-input { margin: 2rem 0 1.5rem; }
+  .evaluator-input label {
+    display: block; color: var(--text-dim);
+    font-family: var(--font-mono); font-size: 0.8rem;
+    margin-bottom: 0.5rem; text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  #csp-input {
+    width: 100%; min-height: 140px;
+    background: var(--bg-elev); border: 1px solid var(--border);
+    border-radius: 10px; padding: 1rem 1.15rem;
+    color: var(--text); font-family: var(--font-mono);
+    font-size: 0.88rem; line-height: 1.6;
+    resize: vertical; box-sizing: border-box;
+  }
+  #csp-input:focus { outline: none; border-color: var(--accent); }
+
+  .input-actions {
+    display: flex; flex-wrap: wrap; align-items: center;
+    gap: 0.5rem; margin-top: 1rem;
+  }
+  #evaluate-btn {
+    background: var(--accent); color: var(--bg);
+    border: none; border-radius: 8px;
+    padding: 0.7rem 1.5rem; font-weight: 600;
+    font-size: 0.95rem; cursor: pointer;
+    transition: background 0.15s;
+  }
+  #evaluate-btn:hover { background: var(--accent-bright); }
+
+  .examples-label {
+    color: var(--text-faint); font-size: 0.85rem;
+    font-family: var(--font-mono); margin-left: 1rem;
+  }
+  .example-btn {
+    background: transparent; border: 1px solid var(--border);
+    color: var(--text-dim); padding: 0.4rem 0.85rem;
+    border-radius: 6px; font-family: var(--font-mono);
+    font-size: 0.8rem; cursor: pointer; transition: all 0.15s;
+  }
+  .example-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .section-title {
+    font-size: 0.72rem; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--text-faint);
+    margin: 2rem 0 0.75rem; font-family: var(--font-mono);
+    font-weight: 600;
+  }
+
+  .result-summary {
+    display: flex; gap: 1.5rem; align-items: center;
+    flex-wrap: wrap; background: var(--bg-elev);
+    border: 1px solid var(--border); border-radius: 10px;
+    padding: 1.5rem; margin-top: 1rem;
+  }
+  .grade-block {
+    background: var(--bg-elev-2); border-radius: 10px;
+    padding: 1rem 1.5rem; text-align: center; min-width: 110px;
+  }
+  .grade-block .grade {
+    font-size: 2.5rem; font-weight: 700; line-height: 1;
+    font-family: var(--font-mono); color: var(--accent);
+  }
+  .grade-block .score {
+    font-size: 0.85rem; color: var(--text-dim);
+    margin-top: 0.3rem; font-family: var(--font-mono);
+  }
+  .grade-A-plus .grade, .grade-A .grade { color: var(--success); }
+  .grade-B .grade { color: var(--accent); }
+  .grade-C .grade { color: var(--warning); }
+  .grade-D .grade, .grade-F .grade { color: var(--danger); }
+
+  .summary-meta {
+    flex: 1; min-width: 220px; line-height: 1.7;
+    color: var(--text-dim); font-size: 0.9rem;
+  }
+  .summary-meta strong { color: var(--text); font-weight: 600; }
+
+  .finding-counts {
+    display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.4rem;
+  }
+  .count { font-family: var(--font-mono); font-size: 0.85rem; }
+  .count.critical { color: var(--danger); }
+  .count.high     { color: var(--warning); }
+  .count.medium   { color: var(--warning); opacity: 0.85; }
+  .count.low      { color: var(--text-faint); }
+  .count.info     { color: var(--accent); }
+  .count.pass     { color: var(--success); }
+
+  .parsed-list {
+    background: var(--bg-elev); border: 1px solid var(--border);
+    border-radius: 10px; padding: 1rem 1.25rem;
+    margin-bottom: 1.5rem;
+  }
+  .parsed-row {
+    display: grid; grid-template-columns: 180px 1fr;
+    gap: 1rem; padding: 0.4rem 0;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    font-size: 0.85rem; line-height: 1.5;
+  }
+  .parsed-row:last-child { border-bottom: none; }
+  .parsed-dir { color: var(--accent); background: none; padding: 0; font-family: var(--font-mono); }
+  .parsed-sources { color: var(--text); background: none; padding: 0; font-family: var(--font-mono); word-break: break-all; }
+  .parsed-sources .empty { color: var(--text-faint); font-style: italic; }
+
+  .findings-list { display: flex; flex-direction: column; gap: 0.85rem; }
+
+  .finding {
+    background: var(--bg-elev); border: 1px solid var(--border);
+    border-left: 4px solid var(--text-faint); border-radius: 8px;
+    padding: 1rem 1.25rem;
+  }
+  .finding-critical { border-left-color: var(--danger); }
+  .finding-high     { border-left-color: var(--warning); }
+  .finding-medium   { border-left-color: var(--warning); }
+  .finding-low      { border-left-color: var(--text-faint); }
+  .finding-info     { border-left-color: var(--accent); }
+
+  .finding-header {
+    display: flex; align-items: center; gap: 0.6rem;
+    margin-bottom: 0.5rem; flex-wrap: wrap;
+  }
+  .finding-header h3 {
+    margin: 0; font-size: 1rem; font-family: var(--font-mono);
+    color: var(--text); flex: 1; min-width: 200px;
+  }
+
+  .severity-badge {
+    text-transform: uppercase; font-size: 0.65rem;
+    letter-spacing: 0.08em; padding: 0.18rem 0.55rem;
+    border-radius: 3px; font-family: var(--font-mono);
+    font-weight: 700;
+  }
+  .sev-critical { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+  .sev-high     { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+  .sev-medium   { background: rgba(245, 158, 11, 0.1); color: var(--warning); opacity: 0.9; }
+  .sev-low      { background: rgba(229, 231, 235, 0.08); color: var(--text-faint); }
+  .sev-info     { background: rgba(56, 189, 248, 0.1); color: var(--accent); }
+
+  .finding-meta {
+    color: var(--text-faint); font-size: 0.8rem;
+    margin-bottom: 0.5rem; font-family: var(--font-mono);
+  }
+  .finding-meta code {
+    background: var(--bg-elev-2); color: var(--accent);
+    padding: 0.1rem 0.35rem; border-radius: 3px;
+  }
+  .finding-desc {
+    color: var(--text-dim); line-height: 1.55;
+    margin: 0.4rem 0; font-size: 0.9rem;
+  }
+  .finding-rec {
+    background: rgba(56, 189, 248, 0.06);
+    border-left: 2px solid var(--accent);
+    padding: 0.6rem 0.85rem; border-radius: 5px;
+    font-size: 0.88rem; line-height: 1.55;
+    color: var(--text-dim); margin-top: 0.65rem;
+  }
+  .finding-rec strong { color: var(--text); }
+
+  .no-findings {
+    background: rgba(16, 185, 129, 0.08);
+    border: 1px solid var(--success); border-radius: 8px;
+    padding: 1.5rem; text-align: center;
+    color: var(--success); font-weight: 600;
+    margin-top: 1rem; font-size: 1.05rem;
+  }
+</style>

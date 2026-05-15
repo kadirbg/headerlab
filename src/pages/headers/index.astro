@@ -290,7 +290,7 @@ import Layout from '../../components/Layout.astro';
     return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
   }
 
-const LOCATIONS = {
+  const LOCATIONS = {
     nginx: `<strong>Where:</strong> Add inside your <code>server</code> block — e.g. <code>/etc/nginx/sites-available/yoursite</code> or <code>/etc/nginx/nginx.conf</code>. Reload after: <code>sudo nginx -s reload</code>`,
     apache: `<strong>Where:</strong> Add to <code>.htaccess</code> in your site root, or to your <code>VirtualHost</code> config. Requires <code>mod_headers</code>: <code>sudo a2enmod headers && sudo systemctl reload apache2</code>`,
     cloudflare: `<strong>Where:</strong> No file needed — apply via Cloudflare Dashboard. See the snippet comments for exact navigation path.`
@@ -333,6 +333,28 @@ const LOCATIONS = {
     `;
   }
 
+  function renderCheckValue(c: HeaderCheck) {
+    if (!c.present) {
+      return `<div class="check-value missing">Header not present</div>`;
+    }
+    // For CSP, add Copy + Evaluate action buttons
+    const cspActions = c.id === 'csp' ? `
+      <div class="value-actions">
+        <button type="button" class="value-action-btn" data-csp-copy>Copy CSP</button>
+        <button type="button" class="value-action-btn primary" data-csp-evaluate>
+          Evaluate in CSP Evaluator →
+        </button>
+      </div>
+    ` : '';
+    return `
+      <div class="check-value">
+        <span class="label">Value:</span>
+        <code>${escapeHtml(c.value!)}</code>
+        ${cspActions}
+      </div>
+    `;
+  }
+
   function renderResults(data: ApiResponse) {
     const { analysis } = data;
     const gradeClass = analysis.grade.startsWith('A') ? 'grade-a'
@@ -350,9 +372,7 @@ const LOCATIONS = {
           </div>
         </header>
         <p class="check-desc">${escapeHtml(c.description)}</p>
-        ${c.present
-          ? `<div class="check-value"><span class="label">Value:</span> <code>${escapeHtml(c.value!)}</code></div>`
-          : `<div class="check-value missing">Header not present</div>`}
+        ${renderCheckValue(c)}
         ${c.status !== 'pass'
           ? `<div class="check-recommendation"><strong>Recommendation:</strong> ${escapeHtml(c.recommendation)}</div>`
           : ''}
@@ -387,7 +407,7 @@ const LOCATIONS = {
     results.hidden = false;
   }
 
-form.addEventListener('submit', async (e) => {
+  form.addEventListener('submit', async (e) => {
     e.preventDefault();
     let url = input.value.trim();
     if (!url) return;
@@ -422,7 +442,7 @@ form.addEventListener('submit', async (e) => {
     }
   });
 
-  // Tab switching + copy buttons (event delegation on results container)
+  // Tab switching + copy buttons + CSP integration (event delegation on results container)
   results.addEventListener('click', async (e) => {
     const target = e.target as HTMLElement;
 
@@ -439,7 +459,7 @@ form.addEventListener('submit', async (e) => {
       return;
     }
 
-    // Copy button
+    // Copy snippet (inside fix-snippets)
     if (target.classList.contains('copy-btn')) {
       const panel = target.closest('.tab-panel');
       const code = panel?.querySelector('code')?.textContent;
@@ -457,9 +477,43 @@ form.addEventListener('submit', async (e) => {
         target.textContent = 'Copy failed';
         setTimeout(() => { target.textContent = 'Copy'; }, 1800);
       }
+      return;
+    }
+
+    // Copy CSP value (next to the policy display)
+    if (target.matches('[data-csp-copy]')) {
+      const code = target.closest('.check-value')?.querySelector('code')?.textContent;
+      if (!code) return;
+      try {
+        await navigator.clipboard.writeText(code);
+        const original = target.textContent;
+        target.textContent = 'Copied!';
+        target.classList.add('copied');
+        setTimeout(() => {
+          target.textContent = original;
+          target.classList.remove('copied');
+        }, 1800);
+      } catch {
+        target.textContent = 'Copy failed';
+        setTimeout(() => { target.textContent = 'Copy CSP'; }, 1800);
+      }
+      return;
+    }
+
+    // Send CSP to Evaluator (sessionStorage transfer, then navigate)
+    if (target.matches('[data-csp-evaluate]')) {
+      const code = target.closest('.check-value')?.querySelector('code')?.textContent;
+      if (!code) return;
+      try {
+        sessionStorage.setItem('csp-to-evaluate', code);
+      } catch {
+        // sessionStorage failed (private mode edge case) — fall through to navigation anyway
+      }
+      window.location.href = '/csp-evaluator';
+      return;
     }
   });
-  
+
   // Auto-scan if URL provided via ?url= query param (from homepage hero form)
   const urlParams = new URLSearchParams(window.location.search);
   const prefilled = urlParams.get('url');
@@ -571,6 +625,47 @@ form.addEventListener('submit', async (e) => {
   .check-value .label { color: var(--text-faint); margin-right: 0.5rem; }
   .check-value code { word-break: break-all; }
   .check-value.missing { color: var(--text-faint); font-style: italic; }
+
+  /* CSP-specific action buttons (Copy + Evaluate) */
+  .value-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px dashed var(--border);
+  }
+  .value-action-btn {
+    display: inline-flex;
+    align-items: center;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 0.4rem 0.85rem;
+    font-size: 0.8rem;
+    font-family: var(--font-mono);
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-decoration: none;
+  }
+  .value-action-btn:hover {
+    color: var(--text);
+    border-color: var(--text-dim);
+  }
+  .value-action-btn.primary {
+    background: rgba(56, 189, 248, 0.08);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .value-action-btn.primary:hover {
+    background: rgba(56, 189, 248, 0.15);
+    color: var(--accent-bright);
+  }
+  .value-action-btn.copied {
+    color: var(--success);
+    border-color: var(--success);
+  }
 
   .check-recommendation {
     font-size: 0.9rem; color: var(--text); margin: 0.75rem 0;
