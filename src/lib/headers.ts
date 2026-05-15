@@ -150,7 +150,11 @@ Header always set Content-Security-Policy "default-src 'self'; script-src 'self'
     validate: (value) => {
       if (!value) return 'fail';
       const safe = ['no-referrer', 'no-referrer-when-downgrade', 'same-origin', 'strict-origin', 'strict-origin-when-cross-origin'];
-      return safe.includes(value.toLowerCase().trim()) ? 'pass' : 'warn';
+      // Comma-separated fallback lists: per spec, browsers walk right-to-left
+      // and use the first recognized value. Treat the rightmost as effective.
+      const parts = value.toLowerCase().split(',').map(s => s.trim()).filter(Boolean);
+      const effective = parts[parts.length - 1];
+      return effective && safe.includes(effective) ? 'pass' : 'warn';
     }
   },
   {

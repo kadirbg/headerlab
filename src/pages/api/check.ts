@@ -10,7 +10,13 @@ export const POST: APIRoute = async ({ request }) => {
 
   try {
     const body = await request.json() as { url?: string };
-    const rawUrl = body.url?.trim();
+    let rawUrl = body.url?.trim();
+     if (!rawUrl) return json({ error: 'URL is required' }, 400);
+
+    // Auto-prepend https:// if no protocol — defense in depth, client also normalizes
+    if (!/^https?:\/\//i.test(rawUrl)) {
+      rawUrl = 'https://' + rawUrl;
+    }
 
     if (!rawUrl) return json({ error: 'URL is required' }, 400);
 

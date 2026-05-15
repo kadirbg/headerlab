@@ -38,18 +38,34 @@ const tools = [
   title="HeaderLab — Modern Web Security Toolkit"
   description="Free, privacy-first security tools for developers and engineers. HTTP headers checker, CSP builder, JWT decoder, and more."
 >
-  <section class="hero">
+<section class="hero">
     <h1>
       Web security tools<br />
       <span class="accent">that don't suck.</span>
     </h1>
     <p class="lead">
       Free, fast, privacy-first. Built for developers and security engineers.
-      Everything runs in your browser or as a one-shot scan — we never store your data.
     </p>
+
+    <form class="hero-scan" id="hero-scan">
+      <div class="hero-input-group">
+        <input
+          type="text"
+          name="url"
+          id="hero-url-input"
+          placeholder="example.com"
+          autocomplete="off"
+          required
+        />
+        <button type="submit">Scan headers →</button>
+      </div>
+      <p class="hero-scan-hint">
+        Quick scan our HTTP Security Headers Checker. Or <a href="#tools">explore all tools</a> below.
+      </p>
+    </form>
   </section>
 
-  <section class="tools-grid">
+ <section class="tools-grid" id="tools">
     {tools.map((tool) => (
       tool.status === 'available' ? (
         <a href={`/${tool.slug}`} class="tool-card">
@@ -166,4 +182,76 @@ const tools = [
     font-size: 0.9rem;
     font-weight: 500;
   }
+
+  .hero-scan {
+    max-width: 620px;
+    margin: 2.5rem auto 0.5rem;
+  }
+
+  .hero-input-group {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  #hero-url-input {
+    flex: 1;
+    min-width: 220px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem 1.15rem;
+    color: var(--text);
+    font-size: 1.05rem;
+    font-family: var(--font-mono);
+  }
+  #hero-url-input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  .hero-scan button {
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    border-radius: 10px;
+    padding: 1rem 1.6rem;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background 0.15s;
+    white-space: nowrap;
+  }
+  .hero-scan button:hover { background: var(--accent-bright); }
+
+  .hero-scan-hint {
+    text-align: center;
+    font-size: 0.85rem;
+    color: var(--text-faint);
+    margin: 1.25rem 0 0;
+  }
+  .hero-scan-hint a {
+    color: var(--text-dim);
+    text-decoration: underline;
+    text-decoration-color: rgba(156, 163, 175, 0.4);
+    text-underline-offset: 2px;
+  }
+  .hero-scan-hint a:hover { color: var(--accent); }
 </style>
+
+<script>
+  const form = document.getElementById('hero-scan');
+  const input = document.getElementById('hero-url-input');
+
+  if (form && input) {
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      let url = input.value.trim();
+      if (!url) return;
+      if (!/^https?:\/\//i.test(url)) {
+        url = 'https://' + url;
+      }
+      window.location.href = `/headers?url=${encodeURIComponent(url)}`;
+    });
+  }
+</script>
