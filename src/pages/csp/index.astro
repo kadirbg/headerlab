@@ -78,6 +78,257 @@ import Layout from '../../components/Layout.astro';
       </div>
     </div>
   </section>
+
+  <section class="seo-content">
+    <header class="seo-intro">
+      <span class="seo-tag">REFERENCE</span>
+      <h2>Understanding Content Security Policy</h2>
+      <p class="seo-lead">
+        A practical guide to deploying CSP without breaking your site.
+      </p>
+    </header>
+
+    <h3>What is Content Security Policy?</h3>
+    <p>
+      Content Security Policy (CSP) is an HTTP response header that tells the browser
+      which sources of content — scripts, styles, images, fonts, iframes, and more —
+      are allowed to load on a page. When properly configured, it dramatically reduces
+      the impact of cross-site scripting (XSS), one of the most common and damaging
+      web vulnerabilities.
+    </p>
+    <p>
+      Unlike a single-purpose header like <code>X-Frame-Options</code> (which only
+      controls iframing), CSP is a complete declarative policy: you list the trusted
+      sources for each kind of resource, and the browser blocks anything that doesn't
+      match. If an attacker manages to inject a <code>&lt;script&gt;</code> tag pointing
+      to their own server, CSP prevents the browser from executing it.
+    </p>
+    <p>
+      CSP is supported by all modern browsers and has been the OWASP-recommended
+      primary defense against XSS for over a decade.
+    </p>
+
+    <h3>Why CSP is hard to deploy</h3>
+    <p>
+      CSP is powerful, but it's notoriously tricky to roll out without breaking your
+      site. Most pages depend on dozens of third-party resources — analytics, fonts,
+      error tracking, embedded videos, payment widgets — and missing any single one
+      in your policy will silently break it. There are two practical strategies:
+    </p>
+    <p>
+      <strong>Report-only first.</strong> Deploy
+      <code>Content-Security-Policy-Report-Only</code> instead of the enforcing header.
+      The browser will check your policy but won't block anything; instead, it'll log
+      violations (and optionally POST them to a <code>report-uri</code> endpoint).
+      After a few days of real traffic, you'll know exactly what your policy is missing.
+    </p>
+    <p>
+      <strong>Start broad, tighten over time.</strong> Begin with a permissive policy
+      (<code>default-src 'self' https:</code>) and progressively restrict. Each release,
+      narrow one directive based on what your site actually needs.
+    </p>
+    <p>
+      The CSP Builder above gives you a starting policy. The
+      <a href="/headers">Headers Checker</a> will then tell you whether what you
+      shipped is actually being delivered by your server.
+    </p>
+
+    <h3>Directive-by-directive guide</h3>
+    <p>
+      CSP is made up of <em>directives</em> — individual rules for different resource
+      types. Here are the most important ones:
+    </p>
+
+    <p>
+      <strong><code>default-src</code></strong> is the fallback. Any fetch directive you
+      don't explicitly set inherits from <code>default-src</code>. Setting it to
+      <code>'self'</code> is a reasonable safe baseline; setting it to <code>'none'</code>
+      (GitHub's choice) is the strictest possible default and forces you to explicitly
+      allow each resource type.
+    </p>
+
+    <p>
+      <strong><code>script-src</code></strong> controls where JavaScript can come from.
+      This is the most security-critical directive. Avoid <code>'unsafe-inline'</code>
+      and <code>'unsafe-eval'</code> — they essentially turn off CSP's XSS protection.
+      If you need inline scripts, use nonces (<code>'nonce-abc123'</code>) or hashes
+      (<code>'sha256-...'</code>).
+    </p>
+
+    <p>
+      <strong><code>style-src</code></strong> controls stylesheets. Many modern
+      frameworks (Tailwind, CSS-in-JS libraries) inject inline styles, so
+      <code>'unsafe-inline'</code> here is extremely common and significantly less
+      dangerous than in <code>script-src</code> — attackers can't execute code through
+      CSS, only modify appearance.
+    </p>
+
+    <p>
+      <strong><code>img-src</code></strong> controls images. Most sites use
+      <code>'self' data: https:</code> to allow same-origin images, data URIs (for
+      icons/SVGs), and any HTTPS source (for user-uploaded content or CDNs).
+    </p>
+
+    <p>
+      <strong><code>font-src</code></strong> controls fonts. Common values include
+      <code>'self'</code> and font CDNs like <code>https://fonts.gstatic.com</code>.
+    </p>
+
+    <p>
+      <strong><code>connect-src</code></strong> controls where your page can make
+      network requests — <code>fetch()</code>, <code>XMLHttpRequest</code>, WebSocket,
+      EventSource. If your app talks to APIs, this is where you list those origins.
+    </p>
+
+    <p>
+      <strong><code>frame-src</code></strong> controls iframes that your page embeds
+      (Stripe checkout, YouTube embeds, Google Maps).
+    </p>
+
+    <p>
+      <strong><code>frame-ancestors</code></strong> is the reverse: it controls who
+      can embed <em>your</em> page in an iframe. This is the modern replacement for
+      <code>X-Frame-Options</code>. Set it to <code>'none'</code> to prevent any
+      framing, or <code>'self'</code> to allow same-origin only.
+    </p>
+
+    <p>
+      <strong><code>form-action</code></strong> restricts where forms on your page
+      can submit. Setting it to <code>'self'</code> prevents phishing attacks where
+      injected forms post user data to attacker-controlled servers.
+    </p>
+
+    <p>
+      <strong><code>base-uri</code></strong> restricts URLs in the
+      <code>&lt;base&gt;</code> element. Most sites should set this to
+      <code>'self'</code> to prevent attackers from changing relative URLs by
+      injecting a <code>&lt;base&gt;</code> tag.
+    </p>
+
+    <p>
+      <strong><code>object-src</code></strong> controls <code>&lt;object&gt;</code>,
+      <code>&lt;embed&gt;</code>, and <code>&lt;applet&gt;</code> (Flash-era plugins).
+      Setting it to <code>'none'</code> is recommended for almost every modern site.
+    </p>
+
+    <h3>Common source keywords</h3>
+    <p>CSP source values can be exact URLs, wildcards, or special keywords:</p>
+    <ul>
+      <li><code>'self'</code> — same-origin (matches your protocol, host, and port)</li>
+      <li><code>'none'</code> — no sources allowed</li>
+      <li><code>'unsafe-inline'</code> — allows inline <code>&lt;script&gt;</code> and <code>&lt;style&gt;</code> blocks. <strong>Avoid in <code>script-src</code>.</strong></li>
+      <li><code>'unsafe-eval'</code> — allows <code>eval()</code>, <code>new Function()</code>, and similar. <strong>Avoid universally.</strong></li>
+      <li><code>'strict-dynamic'</code> — modern CSP3 mode that trusts scripts loaded by other trusted scripts</li>
+      <li><code>data:</code> — allows <code>data:</code> URIs (inline images, fonts)</li>
+      <li><code>blob:</code> — allows blob URLs (for dynamically generated content)</li>
+      <li><code>https:</code> — allows any HTTPS source (broad — use sparingly)</li>
+      <li><code>*</code> — wildcard. <strong>Essentially disables CSP.</strong></li>
+    </ul>
+    <p>
+      You can also use scheme-host wildcards like <code>https://*.example.com</code>
+      to allow all subdomains.
+    </p>
+
+    <h3>Frequently asked questions</h3>
+
+    <p class="faq-q">Will CSP break my Google Analytics?</p>
+    <p class="faq-a">
+      Possibly. If you load <code>gtag.js</code> from
+      <code>https://www.googletagmanager.com</code>, you'll need to allow that in
+      <code>script-src</code>. Google Analytics also makes XHR requests to
+      <code>https://www.google-analytics.com</code>, so add that to
+      <code>connect-src</code>. The CSP Builder's "Balanced" template handles common
+      patterns like this.
+    </p>
+
+    <p class="faq-q">What's the difference between Content-Security-Policy and Content-Security-Policy-Report-Only?</p>
+    <p class="faq-a">
+      The enforcing header blocks resources that violate the policy. The report-only
+      header logs violations to the browser console (and optionally to a
+      <code>report-uri</code> endpoint) but doesn't block anything. Use report-only
+      mode while testing your policy, then switch to enforcing once you're confident.
+    </p>
+
+    <p class="faq-q">Can I use both headers at the same time?</p>
+    <p class="faq-a">
+      Yes, and it's a useful pattern. Ship an enforcing header with your known-good
+      policy, and ship a stricter report-only header to find places to tighten further.
+      Browsers block based on the first and log based on the second.
+    </p>
+
+    <p class="faq-q">Do I need X-Frame-Options if I have frame-ancestors in my CSP?</p>
+    <p class="faq-a">
+      CSP <code>frame-ancestors</code> supersedes <code>X-Frame-Options</code> in
+      browsers that support both (all modern browsers). For maximum compatibility,
+      set both, but if you have to pick one, <code>frame-ancestors</code> is more
+      flexible.
+    </p>
+
+    <p class="faq-q">How do nonces work?</p>
+    <p class="faq-a">
+      A nonce is a random value generated per-request. You include it in your CSP
+      (<code>script-src 'nonce-abc123'</code>) and in the <code>nonce</code> attribute
+      of every inline <code>&lt;script nonce="abc123"&gt;</code>. The browser only
+      executes inline scripts whose nonce matches the header. Since the nonce changes
+      every request, attackers can't predict it.
+    </p>
+
+    <h3>Further reading</h3>
+    <ul>
+      <li><a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Security-Policy" target="_blank" rel="noopener">MDN — Content Security Policy</a></li>
+      <li><a href="https://cheatsheetseries.owasp.org/cheatsheets/Content_Security_Policy_Cheat_Sheet.html" target="_blank" rel="noopener">OWASP — CSP Cheat Sheet</a></li>
+      <li><a href="https://csp-evaluator.withgoogle.com/" target="_blank" rel="noopener">Google — CSP Evaluator</a></li>
+      <li><a href="https://web.dev/articles/strict-csp" target="_blank" rel="noopener">web.dev — Strict CSP guide</a></li>
+      <li><a href="https://observatory.mozilla.org/" target="_blank" rel="noopener">Mozilla Observatory — full security audit</a></li>
+    </ul>
+  </section>
+
+  <script type="application/ld+json" set:html={JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "Will CSP break my Google Analytics?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Possibly. If you load gtag.js from https://www.googletagmanager.com, you'll need to allow that in script-src. Google Analytics also makes XHR requests to https://www.google-analytics.com, so add that to connect-src. The CSP Builder's 'Balanced' template handles common patterns like this."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "What's the difference between Content-Security-Policy and Content-Security-Policy-Report-Only?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "The enforcing header blocks resources that violate the policy. The report-only header logs violations to the browser console (and optionally to a report-uri endpoint) but doesn't block anything. Use report-only mode while testing your policy, then switch to enforcing once you're confident."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Can I use both Content-Security-Policy headers at the same time?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes, and it's a useful pattern. Ship an enforcing header with your known-good policy, and ship a stricter report-only header to find places to tighten further. Browsers block based on the first and log based on the second."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Do I need X-Frame-Options if I have frame-ancestors in my CSP?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "CSP frame-ancestors supersedes X-Frame-Options in browsers that support both (all modern browsers). For maximum compatibility, set both, but if you have to pick one, frame-ancestors is more flexible."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How do CSP nonces work?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "A nonce is a random value generated per-request. You include it in your CSP (script-src 'nonce-abc123') and in the nonce attribute of every inline script tag. The browser only executes inline scripts whose nonce matches the header. Since the nonce changes every request, attackers can't predict it."
+        }
+      }
+    ]
+  })} />
 </Layout>
 
 <script>
@@ -519,5 +770,100 @@ import Layout from '../../components/Layout.astro';
     background: none; padding: 0;
     font-family: var(--font-mono); font-size: 0.85rem;
     color: var(--text); white-space: pre;
+  }
+  /* ===== SEO content section ===== */
+  .seo-content {
+    margin-top: 6rem;
+    padding-top: 3.5rem;
+    border-top: 1px solid var(--border);
+    max-width: 760px;
+    margin-left: auto;
+    margin-right: auto;
+    line-height: 1.7;
+    color: var(--text-dim);
+  }
+
+  .seo-intro {
+    margin-bottom: 3rem;
+  }
+
+  .seo-tag {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-family: var(--font-mono);
+    letter-spacing: 0.12em;
+    color: var(--accent);
+    background: rgba(56, 189, 248, 0.08);
+    padding: 0.25rem 0.55rem;
+    border-radius: 4px;
+    margin-bottom: 0.85rem;
+  }
+
+  .seo-content h2 {
+    font-size: 1.7rem;
+    margin: 0 0 0.5rem;
+    color: var(--text);
+    line-height: 1.3;
+  }
+
+  .seo-lead {
+    color: var(--text-dim);
+    font-size: 1.05rem;
+    margin: 0;
+  }
+
+  .seo-content h3 {
+    font-size: 1.2rem;
+    margin: 2.75rem 0 0.85rem;
+    color: var(--text);
+    line-height: 1.35;
+  }
+
+  .seo-content p {
+    margin: 0.85rem 0;
+  }
+
+  .seo-content code {
+    background: var(--bg-elev-2);
+    padding: 0.1rem 0.4rem;
+    border-radius: 3px;
+    font-size: 0.88em;
+    color: var(--accent-bright);
+    font-family: var(--font-mono);
+  }
+
+  .seo-content strong {
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  .seo-content em {
+    color: var(--text);
+    font-style: italic;
+  }
+
+  .seo-content a {
+    color: var(--accent);
+    text-decoration: underline;
+    text-decoration-color: rgba(56, 189, 248, 0.4);
+    text-underline-offset: 2px;
+  }
+  .seo-content a:hover { text-decoration-color: var(--accent); }
+
+  .seo-content ul {
+    margin: 0.85rem 0;
+    padding-left: 1.5rem;
+  }
+  .seo-content li {
+    margin: 0.5rem 0;
+  }
+
+  .faq-q {
+    color: var(--text);
+    font-weight: 600;
+    margin-top: 1.75rem !important;
+  }
+  .faq-a {
+    margin-top: 0.25rem !important;
   }
 </style>
