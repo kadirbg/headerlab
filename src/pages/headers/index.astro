@@ -66,6 +66,12 @@ import Layout from '../../components/Layout.astro';
     return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
   }
 
+const LOCATIONS = {
+    nginx: `<strong>Where:</strong> Add inside your <code>server</code> block — e.g. <code>/etc/nginx/sites-available/yoursite</code> or <code>/etc/nginx/nginx.conf</code>. Reload after: <code>sudo nginx -s reload</code>`,
+    apache: `<strong>Where:</strong> Add to <code>.htaccess</code> in your site root, or to your <code>VirtualHost</code> config. Requires <code>mod_headers</code>: <code>sudo a2enmod headers && sudo systemctl reload apache2</code>`,
+    cloudflare: `<strong>Where:</strong> No file needed — apply via Cloudflare Dashboard. See the snippet comments for exact navigation path.`
+  };
+
   function renderSnippets(check: HeaderCheck) {
     if (check.status === 'pass') return '';
     const id = check.id;
@@ -77,21 +83,29 @@ import Layout from '../../components/Layout.astro';
           <button class="tab-btn" data-target="snippet-${id}-apache">Apache</button>
           <button class="tab-btn" data-target="snippet-${id}-cloudflare">Cloudflare</button>
         </div>
-        <div class="tab-panels">
+       <div class="tab-panels">
           <div id="snippet-${id}-nginx" class="tab-panel active">
-            <button class="copy-btn" type="button">Copy</button>
-            <pre><code>${escapeHtml(check.fixSnippets.nginx)}</code></pre>
+            <div class="snippet-location">${LOCATIONS.nginx}</div>
+            <div class="snippet-code">
+              <button class="copy-btn" type="button">Copy</button>
+              <pre><code>${escapeHtml(check.fixSnippets.nginx)}</code></pre>
+            </div>
           </div>
           <div id="snippet-${id}-apache" class="tab-panel">
-            <button class="copy-btn" type="button">Copy</button>
-            <pre><code>${escapeHtml(check.fixSnippets.apache)}</code></pre>
+            <div class="snippet-location">${LOCATIONS.apache}</div>
+            <div class="snippet-code">
+              <button class="copy-btn" type="button">Copy</button>
+              <pre><code>${escapeHtml(check.fixSnippets.apache)}</code></pre>
+            </div>
           </div>
           <div id="snippet-${id}-cloudflare" class="tab-panel">
-            <button class="copy-btn" type="button">Copy</button>
-            <pre><code>${escapeHtml(check.fixSnippets.cloudflare)}</code></pre>
+            <div class="snippet-location">${LOCATIONS.cloudflare}</div>
+            <div class="snippet-code">
+              <button class="copy-btn" type="button">Copy</button>
+              <pre><code>${escapeHtml(check.fixSnippets.cloudflare)}</code></pre>
+            </div>
           </div>
         </div>
-      </div>
     `;
   }
 
@@ -357,16 +371,38 @@ import Layout from '../../components/Layout.astro';
   }
 
   .tab-panels { position: relative; }
-  .tab-panel { display: none; position: relative; }
+  .tab-panel { display: none; }
   .tab-panel.active { display: block; }
 
-  .tab-panel pre {
+  .snippet-location {
+    background: rgba(56, 189, 248, 0.06);
+    border-left: 2px solid var(--accent);
+    color: var(--text-dim);
+    padding: 0.65rem 0.9rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    line-height: 1.55;
+    margin-bottom: 0.5rem;
+  }
+  .snippet-location strong { color: var(--text); font-weight: 600; margin-right: 0.25rem; }
+  .snippet-location code {
+    background: var(--bg);
+    padding: 0.1rem 0.35rem;
+    border-radius: 3px;
+    font-size: 0.85em;
+    color: var(--accent-bright);
+    font-family: var(--font-mono);
+  }
+
+  .snippet-code { position: relative; }
+
+  .snippet-code pre {
     background: var(--bg-elev-2); border: 1px solid var(--border);
     border-radius: 0 8px 8px 8px; padding: 1rem; padding-right: 5rem;
     overflow-x: auto; margin: 0;
     font-size: 0.85rem; line-height: 1.55;
   }
-  .tab-panel pre code {
+  .snippet-code pre code {
     background: none; padding: 0;
     font-family: var(--font-mono); color: var(--text);
     white-space: pre;
