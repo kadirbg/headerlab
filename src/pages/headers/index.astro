@@ -36,6 +36,229 @@ import Layout from '../../components/Layout.astro';
   </section>
 
   <section id="results" class="results" hidden></section>
+  <section class="content-section">
+    <h2>What Are HTTP Security Headers?</h2>
+    <p>
+      HTTP security headers are response headers your web server sends along with every page.
+      They tell the browser how to behave — what content to trust, what to block, when to
+      enforce HTTPS, and whether the page can be embedded by other sites. Used correctly,
+      they form a critical layer of defense against the most common web attacks: cross-site
+      scripting (XSS), clickjacking, MIME-sniffing exploits, downgrade attacks, and
+      information leakage.
+    </p>
+    <p>
+      The catch: these headers are <strong>opt-in</strong>. Without explicit configuration,
+      modern browsers default to permissive behavior for backward compatibility. A site with
+      no security headers is functionally equivalent to a site from 2005 — it works, but it
+      leaves doors open that attackers know exactly how to push through.
+    </p>
+
+    <h2>Why Your Site Needs Them</h2>
+    <p>Three reasons, in order of importance:</p>
+    <ol>
+      <li>
+        <strong>Real attacks.</strong> XSS and clickjacking are not theoretical — they're
+        consistently in the OWASP Top 10. A properly configured Content-Security-Policy alone
+        would have blocked the majority of XSS exploits in the last decade.
+      </li>
+      <li>
+        <strong>Compliance and trust.</strong> Security audits, bug bounty programs, and
+        enterprise customers expect a security-headers grade of A or better. Without it, you
+        fail vendor questionnaires.
+      </li>
+      <li>
+        <strong>SEO and reputation.</strong> Google's algorithm doesn't directly rank by
+        security headers, but search engines do prefer secure, modern sites. Browsers also
+        display warnings for sites missing HSTS on <code>.dev</code>, <code>.app</code>, and
+        similar HTTPS-required TLDs.
+      </li>
+    </ol>
+
+    <h2>The Headers We Check</h2>
+
+    <h3>Strict-Transport-Security (HSTS)</h3>
+    <p>
+      Forces browsers to use HTTPS for every connection to your domain, even if a user types
+      <code>http://</code> or clicks an old HTTP link. Once a browser sees HSTS, it remembers
+      your site is HTTPS-only for the duration of <code>max-age</code>. This prevents
+      downgrade attacks and cookie hijacking on public Wi-Fi. Required for the
+      <strong>HSTS preload list</strong>, which bakes your domain into Chrome, Firefox,
+      Safari, and Edge themselves.
+    </p>
+
+    <h3>Content-Security-Policy (CSP)</h3>
+    <p>
+      The most powerful header on this list. CSP tells the browser exactly which sources of
+      scripts, styles, images, fonts, and other resources are allowed to load. A strict CSP
+      makes XSS attacks effectively impossible — even if an attacker injects malicious
+      JavaScript into your HTML, the browser refuses to execute it because the source isn't
+      whitelisted. The tradeoff: CSP is the hardest header to deploy because it must
+      accommodate every legitimate resource your site loads. Start with
+      <code>Content-Security-Policy-Report-Only</code>, watch violation reports, then enforce.
+    </p>
+
+    <h3>X-Frame-Options</h3>
+    <p>
+      Stops other sites from embedding your pages in <code>&lt;iframe&gt;</code> elements.
+      Without it, an attacker can put your login page inside their own page, overlay a fake
+      button, and steal credentials with a single click (clickjacking). Set it to
+      <code>DENY</code> if you never need to be framed; <code>SAMEORIGIN</code> if you frame
+      yourself (e.g., admin dashboards). Modern alternative:
+      <code>frame-ancestors</code> directive inside CSP, which is more granular.
+    </p>
+
+    <h3>X-Content-Type-Options</h3>
+    <p>
+      A small but important header that blocks MIME-type sniffing. Without it, browsers may
+      treat a file's contents differently from its declared <code>Content-Type</code> — for
+      example, executing a <code>.txt</code> file as JavaScript if the contents look like
+      code. Setting this to <code>nosniff</code> removes that ambiguity. There's no good
+      reason not to enable it.
+    </p>
+
+    <h3>Referrer-Policy</h3>
+    <p>
+      Controls what URL information the browser sends in the <code>Referer</code> header when
+      users navigate away from your site. The default leaks your full URL — including query
+      strings that might contain session tokens, search terms, or other sensitive context —
+      to every external link target. Use <code>strict-origin-when-cross-origin</code>
+      (modern browser default) or <code>no-referrer</code> for maximum privacy.
+    </p>
+
+    <h3>Permissions-Policy</h3>
+    <p>
+      Restricts which powerful browser APIs your site (and any third parties loaded by it)
+      can use. Camera, microphone, geolocation, payment, USB, accelerometer — all features
+      that should be off by default for sites that don't need them. Setting
+      <code>camera=(), microphone=(), geolocation=()</code> blocks both your own code and any
+      embedded scripts from prompting users for these permissions.
+    </p>
+
+    <h2>Frequently Asked Questions</h2>
+
+    <h3>Do I need to set all six headers?</h3>
+    <p>
+      At minimum: HSTS, X-Content-Type-Options, X-Frame-Options (or CSP frame-ancestors), and
+      Referrer-Policy. These cost nothing and break nothing. CSP and Permissions-Policy
+      require more thought because they can block legitimate functionality if misconfigured
+      — deploy them in report-only mode first.
+    </p>
+
+    <h3>Will adding these headers break my site?</h3>
+    <p>
+      HSTS, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, and Permissions-Policy
+      are safe to deploy with the recommended values. CSP is the only one likely to break
+      things on first deploy, because it enumerates everything your site loads. Use
+      <code>Content-Security-Policy-Report-Only</code> first, monitor violation reports for
+      a week, fix the legitimate ones, then switch to enforcing mode.
+    </p>
+
+    <h3>What's the difference between X-Frame-Options and CSP frame-ancestors?</h3>
+    <p>
+      <code>X-Frame-Options</code> is older and accepts only three values: <code>DENY</code>,
+      <code>SAMEORIGIN</code>, or <code>ALLOW-FROM</code> (deprecated).
+      <code>frame-ancestors</code> inside CSP supports multiple origins, wildcards, and
+      <code>'none'</code>. If you set both, modern browsers obey <code>frame-ancestors</code>
+      and ignore <code>X-Frame-Options</code>. Keeping <code>X-Frame-Options</code> is fine
+      as a fallback for older browsers.
+    </p>
+
+    <h3>Why does HSTS require HTTPS?</h3>
+    <p>
+      HSTS only takes effect over a secure connection. Sending the header over plain HTTP is
+      meaningless — an attacker could strip it. The browser ignores HSTS on HTTP responses
+      by design. Once a user visits your HTTPS site, the header registers and HTTPS is
+      enforced from then on.
+    </p>
+
+    <h3>How often should I re-scan my site?</h3>
+    <p>
+      After any deployment that touches your CDN, third-party scripts, or analytics setup.
+      Also after migrating hosting — Nginx config gets lost on server moves more often than
+      you'd expect. Some teams add a security headers scan to their CI pipeline; we'll
+      publish API docs for that workflow in a future release.
+    </p>
+
+    <h3>Are these headers enough for a secure website?</h3>
+    <p>
+      No. They're one layer. You still need HTTPS with modern TLS, secure cookies
+      (<code>Secure</code>, <code>HttpOnly</code>, <code>SameSite</code>), input validation,
+      output encoding, parameterized queries, dependency updates, and the rest of the OWASP
+      Top 10. Security headers are necessary, not sufficient.
+    </p>
+
+    <h2>Further Reading</h2>
+    <ul>
+      <li>
+        <a href="https://owasp.org/www-project-secure-headers/" target="_blank" rel="noopener">
+          OWASP Secure Headers Project
+        </a> — the canonical reference, updated regularly.
+      </li>
+      <li>
+        <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers" target="_blank" rel="noopener">
+          MDN Web Docs: HTTP Headers
+        </a> — exhaustive spec for every standard header.
+      </li>
+      <li>
+        <a href="https://observatory.mozilla.org/" target="_blank" rel="noopener">
+          Mozilla Observatory
+        </a> — Mozilla's own scanner with a different scoring methodology.
+      </li>
+      <li>
+        <a href="https://hstspreload.org/" target="_blank" rel="noopener">
+          HSTS Preload List
+        </a> — submit your domain to be hardcoded into browsers as HTTPS-only.
+      </li>
+    </ul>
+  </section>
+
+  <script type="application/ld+json" set:html={JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "Do I need to set all six HTTP security headers?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "At minimum: HSTS, X-Content-Type-Options, X-Frame-Options, and Referrer-Policy. These cost nothing and break nothing. CSP and Permissions-Policy require more thought because they can block legitimate functionality if misconfigured — deploy them in report-only mode first."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Will adding security headers break my site?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "HSTS, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, and Permissions-Policy are safe to deploy with the recommended values. CSP is the only one likely to break things on first deploy. Use Content-Security-Policy-Report-Only first, monitor violation reports for a week, fix the legitimate ones, then switch to enforcing mode."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "What is the difference between X-Frame-Options and CSP frame-ancestors?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "X-Frame-Options is older and accepts only DENY, SAMEORIGIN, or the deprecated ALLOW-FROM. The frame-ancestors directive inside CSP supports multiple origins, wildcards, and 'none'. If both are set, modern browsers obey frame-ancestors and ignore X-Frame-Options."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Why does HSTS require HTTPS?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "HSTS only takes effect over a secure connection. Sending the header over plain HTTP is meaningless because an attacker could strip it. The browser ignores HSTS on HTTP responses by design."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Are HTTP security headers enough for a secure website?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "No. They are one layer. You still need HTTPS with modern TLS, secure cookies, input validation, output encoding, parameterized queries, dependency updates, and the rest of the OWASP Top 10. Security headers are necessary, not sufficient."
+        }
+      }
+    ]
+  })} />
+
 </Layout>
 
 <script>
@@ -418,6 +641,65 @@ const LOCATIONS = {
   }
   .copy-btn:hover { color: var(--text); border-color: var(--text-dim); }
   .copy-btn.copied { color: var(--success); border-color: var(--success); }
+
+  .content-section {
+    margin-top: 4rem;
+    padding-top: 2.5rem;
+    border-top: 1px solid var(--border);
+    max-width: 760px;
+  }
+
+  .content-section h2 {
+    font-size: 1.6rem;
+    margin: 2.5rem 0 1rem;
+    color: var(--text);
+    letter-spacing: -0.01em;
+  }
+
+  .content-section h2:first-child { margin-top: 0; }
+
+  .content-section h3 {
+    font-size: 1.1rem;
+    margin: 1.75rem 0 0.5rem;
+    color: var(--text);
+    font-family: var(--font-mono);
+  }
+
+  .content-section p {
+    color: var(--text-dim);
+    line-height: 1.75;
+    margin: 0 0 1rem;
+    font-size: 0.95rem;
+  }
+
+  .content-section ol,
+  .content-section ul {
+    color: var(--text-dim);
+    line-height: 1.75;
+    padding-left: 1.5rem;
+    margin: 0 0 1.25rem;
+  }
+
+  .content-section li { margin: 0.5rem 0; font-size: 0.95rem; }
+
+  .content-section strong { color: var(--text); font-weight: 600; }
+
+  .content-section a {
+    color: var(--accent);
+    text-decoration: underline;
+    text-decoration-color: rgba(56, 189, 248, 0.3);
+    text-underline-offset: 2px;
+  }
+  .content-section a:hover { text-decoration-color: var(--accent); }
+
+  .content-section code {
+    background: var(--bg-elev-2);
+    padding: 0.1rem 0.4rem;
+    border-radius: 3px;
+    font-size: 0.9em;
+    color: var(--accent-bright);
+    font-family: var(--font-mono);
+  }
 
   .error-box {
     background: rgba(239, 68, 68, 0.1); border: 1px solid var(--danger);
