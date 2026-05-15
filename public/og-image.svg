@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <radialGradient id="glow" cx="20%" cy="30%" r="60%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.18"/>
+      <stop offset="60%" stop-color="#38bdf8" stop-opacity="0.04"/>
+      <stop offset="100%" stop-color="#38bdf8" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="#0a0e1a"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+  <rect x="0" y="0" width="1200" height="5" fill="#38bdf8"/>
+
+  <text x="80" y="110" font-family="'Courier New', monospace" font-size="32" font-weight="700" fill="#e5e7eb">
+    <tspan fill="#38bdf8">[</tspan>HeaderLab<tspan fill="#38bdf8">]</tspan>
+  </text>
+
+  <text x="80" y="310" font-family="-apple-system, 'Segoe UI', sans-serif" font-size="78" font-weight="700" fill="#e5e7eb">
+    Modern web security
+  </text>
+  <text x="80" y="400" font-family="-apple-system, 'Segoe UI', sans-serif" font-size="78" font-weight="700" fill="#38bdf8">
+    toolkit.
+  </text>
+
+  <text x="80" y="475" font-family="-apple-system, 'Segoe UI', sans-serif" font-size="28" fill="#9ca3af">
+    Free, privacy-first tools for developers
+  </text>
+  <text x="80" y="510" font-family="-apple-system, 'Segoe UI', sans-serif" font-size="28" fill="#9ca3af">
+    and security engineers.
+  </text>
+
+  <text x="80" y="575" font-family="'Courier New', monospace" font-size="18" fill="#6b7280">
+    headers · CSP · JWT · CIDR · IP &amp; WHOIS
+  </text>
+
+  <text x="1120" y="595" font-family="'Courier New', monospace" font-size="18" fill="#6b7280" text-anchor="end">
+    headerlab.dev
+  </text>
+</svg>

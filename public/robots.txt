@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+
+# API endpoint, indexing deger uretmez
+Disallow: /api/
+
+Sitemap: https://headerlab.dev/sitemap-index.xml
