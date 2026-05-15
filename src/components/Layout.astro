@@ -170,6 +170,129 @@ const siteUrl = "https://headerlab.dev";
         border-radius: 4px;
         font-size: 0.9em;
       }
+      
+      /* ===== Shared tool-page styles ===== */
+      .tool-header { padding: 2rem 0 1rem; }
+
+      .back-link {
+        color: var(--text-faint);
+        text-decoration: none;
+        font-size: 0.9rem;
+      }
+      .back-link:hover { color: var(--accent); }
+
+      .tool-header h1 {
+        font-size: 2rem;
+        margin: 1rem 0 0.5rem;
+      }
+
+      .lead {
+        color: var(--text-dim);
+        line-height: 1.6;
+        max-width: 700px;
+      }
+
+      /* ===== Fix snippets (Nginx/Apache/Cloudflare tabs) ===== */
+      .fix-snippets { margin: 1rem 0 0.75rem; }
+
+      .fix-snippets h4 {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-faint);
+        margin: 0 0 0.5rem;
+        font-family: var(--font-mono);
+        font-weight: 600;
+      }
+
+      .fix-snippets .tabs {
+        display: flex;
+        gap: 0.25rem;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .fix-snippets .tab-btn {
+        background: transparent;
+        border: 1px solid transparent;
+        border-bottom: none;
+        color: var(--text-faint);
+        padding: 0.5rem 0.9rem;
+        font-size: 0.85rem;
+        font-family: var(--font-mono);
+        cursor: pointer;
+        border-radius: 6px 6px 0 0;
+        margin-bottom: -1px;
+        transition: all 0.15s;
+      }
+      .fix-snippets .tab-btn:hover { color: var(--text); }
+      .fix-snippets .tab-btn.active {
+        color: var(--accent);
+        background: var(--bg-elev-2);
+        border-color: var(--border);
+      }
+
+      .tab-panels { position: relative; }
+      .tab-panel { display: none; }
+      .tab-panel.active { display: block; }
+
+      .snippet-location {
+        background: rgba(56, 189, 248, 0.06);
+        border-left: 2px solid var(--accent);
+        color: var(--text-dim);
+        padding: 0.65rem 0.9rem;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        line-height: 1.55;
+        margin-bottom: 0.5rem;
+      }
+      .snippet-location strong { color: var(--text); font-weight: 600; margin-right: 0.25rem; }
+      .snippet-location code {
+        background: var(--bg);
+        padding: 0.1rem 0.35rem;
+        border-radius: 3px;
+        font-size: 0.85em;
+        color: var(--accent-bright);
+        font-family: var(--font-mono);
+      }
+
+      .snippet-code { position: relative; }
+
+      .snippet-code pre {
+        background: var(--bg-elev-2);
+        border: 1px solid var(--border);
+        border-radius: 0 8px 8px 8px;
+        padding: 1rem;
+        padding-right: 5rem;
+        overflow-x: auto;
+        margin: 0;
+        font-size: 0.85rem;
+        line-height: 1.55;
+      }
+      .snippet-code pre code {
+        background: none;
+        padding: 0;
+        font-family: var(--font-mono);
+        color: var(--text);
+        white-space: pre;
+      }
+
+      .copy-btn {
+        position: absolute;
+        top: 0.65rem;
+        right: 0.65rem;
+        background: var(--bg-elev);
+        border: 1px solid var(--border);
+        color: var(--text-dim);
+        padding: 0.3rem 0.75rem;
+        font-size: 0.75rem;
+        font-family: var(--font-mono);
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.15s;
+        z-index: 1;
+      }
+      .copy-btn:hover { color: var(--text); border-color: var(--text-dim); }
+      .copy-btn.copied { color: var(--success); border-color: var(--success); }
     </style>
   </body>
 </html>
