@@ -5,14 +5,14 @@ import Layout from '../../components/Layout.astro';
 
 <Layout
   title="HTTP Security Headers Checker — HeaderLab"
-  description="Check any URL for security headers like Strict-Transport-Security, Content-Security-Policy, X-Frame-Options. Get severity-ranked issues and copyable fix snippets."
+  description="Check any URL for security headers like Strict-Transport-Security, Content-Security-Policy, X-Frame-Options. Get severity-ranked issues and copyable fix snippets for Nginx, Apache, and Cloudflare."
 >
   <section class="tool-header">
     <a href="/" class="back-link">← All tools</a>
     <h1>HTTP Security Headers Checker</h1>
     <p class="lead">
       Inspect any public URL for missing or misconfigured security headers.
-      Get severity-ranked issues with explanations and recommendations.
+      Get severity-ranked issues with copyable fix snippets for Nginx, Apache, and Cloudflare.
     </p>
   </section>
 
@@ -47,10 +47,12 @@ import Layout from '../../components/Layout.astro';
   type Severity = 'critical' | 'high' | 'medium' | 'low';
   type Status = 'pass' | 'fail' | 'warn';
 
+  interface FixSnippets { nginx: string; apache: string; cloudflare: string; }
   interface HeaderCheck {
     id: string; name: string; present: boolean; value: string | null;
     severity: Severity; status: Status;
     description: string; recommendation: string; reference: string;
+    fixSnippets: FixSnippets;
   }
   interface Analysis {
     score: number; grade: string; checks: HeaderCheck[];
@@ -62,6 +64,35 @@ import Layout from '../../components/Layout.astro';
 
   function escapeHtml(s: string) {
     return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+  }
+
+  function renderSnippets(check: HeaderCheck) {
+    if (check.status === 'pass') return '';
+    const id = check.id;
+    return `
+      <div class="fix-snippets">
+        <h4>Fix it</h4>
+        <div class="tabs" role="tablist">
+          <button class="tab-btn active" data-target="snippet-${id}-nginx">Nginx</button>
+          <button class="tab-btn" data-target="snippet-${id}-apache">Apache</button>
+          <button class="tab-btn" data-target="snippet-${id}-cloudflare">Cloudflare</button>
+        </div>
+        <div class="tab-panels">
+          <div id="snippet-${id}-nginx" class="tab-panel active">
+            <button class="copy-btn" type="button">Copy</button>
+            <pre><code>${escapeHtml(check.fixSnippets.nginx)}</code></pre>
+          </div>
+          <div id="snippet-${id}-apache" class="tab-panel">
+            <button class="copy-btn" type="button">Copy</button>
+            <pre><code>${escapeHtml(check.fixSnippets.apache)}</code></pre>
+          </div>
+          <div id="snippet-${id}-cloudflare" class="tab-panel">
+            <button class="copy-btn" type="button">Copy</button>
+            <pre><code>${escapeHtml(check.fixSnippets.cloudflare)}</code></pre>
+          </div>
+        </div>
+      </div>
+    `;
   }
 
   function renderResults(data: ApiResponse) {
@@ -87,6 +118,7 @@ import Layout from '../../components/Layout.astro';
         ${c.status !== 'pass'
           ? `<div class="check-recommendation"><strong>Recommendation:</strong> ${escapeHtml(c.recommendation)}</div>`
           : ''}
+        ${renderSnippets(c)}
         <a href="${c.reference}" target="_blank" rel="noopener" class="check-ref">MDN reference →</a>
       </article>
     `).join('');
@@ -143,6 +175,44 @@ import Layout from '../../components/Layout.astro';
     } finally {
       btn.disabled = false;
       btn.textContent = 'Scan';
+    }
+  });
+
+  // Tab switching + copy buttons (event delegation on results container)
+  results.addEventListener('click', async (e) => {
+    const target = e.target as HTMLElement;
+
+    // Tab switching
+    if (target.classList.contains('tab-btn')) {
+      const targetId = target.dataset.target;
+      if (!targetId) return;
+      const block = target.closest('.fix-snippets');
+      if (!block) return;
+      block.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      block.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      target.classList.add('active');
+      block.querySelector('#' + targetId)?.classList.add('active');
+      return;
+    }
+
+    // Copy button
+    if (target.classList.contains('copy-btn')) {
+      const panel = target.closest('.tab-panel');
+      const code = panel?.querySelector('code')?.textContent;
+      if (!code) return;
+      try {
+        await navigator.clipboard.writeText(code);
+        const original = target.textContent;
+        target.textContent = 'Copied!';
+        target.classList.add('copied');
+        setTimeout(() => {
+          target.textContent = original;
+          target.classList.remove('copied');
+        }, 1800);
+      } catch {
+        target.textContent = 'Copy failed';
+        setTimeout(() => { target.textContent = 'Copy'; }, 1800);
+      }
     }
   });
 </script>
@@ -222,7 +292,7 @@ import Layout from '../../components/Layout.astro';
   .check-icon {
     width: 28px; height: 28px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    font-weight: 700; font-size: 0.9rem;
+    font-weight: 700; font-size: 0.9rem; flex-shrink: 0;
   }
   .check-pass .check-icon { background: var(--success); color: var(--bg); }
   .check-warn .check-icon { background: var(--warning); color: var(--bg); }
@@ -258,6 +328,60 @@ import Layout from '../../components/Layout.astro';
 
   .check-ref { font-size: 0.8rem; color: var(--text-faint); text-decoration: none; }
   .check-ref:hover { color: var(--accent); }
+
+  /* Fix snippets — the new differentiator */
+  .fix-snippets { margin: 1rem 0 0.75rem; }
+
+  .fix-snippets h4 {
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--text-faint); margin: 0 0 0.5rem;
+    font-family: var(--font-mono); font-weight: 600;
+  }
+
+  .fix-snippets .tabs {
+    display: flex; gap: 0.25rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .fix-snippets .tab-btn {
+    background: transparent; border: 1px solid transparent; border-bottom: none;
+    color: var(--text-faint); padding: 0.5rem 0.9rem;
+    font-size: 0.85rem; font-family: var(--font-mono);
+    cursor: pointer; border-radius: 6px 6px 0 0;
+    margin-bottom: -1px; transition: all 0.15s;
+  }
+  .fix-snippets .tab-btn:hover { color: var(--text); }
+  .fix-snippets .tab-btn.active {
+    color: var(--accent); background: var(--bg-elev-2);
+    border-color: var(--border);
+  }
+
+  .tab-panels { position: relative; }
+  .tab-panel { display: none; position: relative; }
+  .tab-panel.active { display: block; }
+
+  .tab-panel pre {
+    background: var(--bg-elev-2); border: 1px solid var(--border);
+    border-radius: 0 8px 8px 8px; padding: 1rem; padding-right: 5rem;
+    overflow-x: auto; margin: 0;
+    font-size: 0.85rem; line-height: 1.55;
+  }
+  .tab-panel pre code {
+    background: none; padding: 0;
+    font-family: var(--font-mono); color: var(--text);
+    white-space: pre;
+  }
+
+  .copy-btn {
+    position: absolute; top: 0.65rem; right: 0.65rem;
+    background: var(--bg-elev); border: 1px solid var(--border);
+    color: var(--text-dim); padding: 0.3rem 0.75rem;
+    font-size: 0.75rem; font-family: var(--font-mono);
+    border-radius: 4px; cursor: pointer;
+    transition: all 0.15s; z-index: 1;
+  }
+  .copy-btn:hover { color: var(--text); border-color: var(--text-dim); }
+  .copy-btn.copied { color: var(--success); border-color: var(--success); }
 
   .error-box {
     background: rgba(239, 68, 68, 0.1); border: 1px solid var(--danger);
