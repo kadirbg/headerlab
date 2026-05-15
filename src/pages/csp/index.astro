@@ -1,0 +1,523 @@
+---
+export const prerender = true;
+import Layout from '../../components/Layout.astro';
+---
+
+<Layout
+  title="CSP Builder — Build a Content Security Policy Visually | HeaderLab"
+  description="Visually build a Content Security Policy header with templates, per-directive sources, and copyable Nginx, Apache, and Cloudflare snippets. Privacy-first, runs entirely in your browser."
+>
+  <section class="tool-header">
+    <a href="/" class="back-link">← All tools</a>
+    <h1>CSP Builder</h1>
+    <p class="lead">
+      Build a Content Security Policy interactively. Start from a template,
+      adjust directives, see the policy update live, and copy a config snippet
+      for Nginx, Apache, or Cloudflare.
+    </p>
+  </section>
+
+  <section class="csp-templates">
+    <span class="label">Start from:</span>
+    <button type="button" class="tpl-btn" data-template="strict">Strict</button>
+    <button type="button" class="tpl-btn" data-template="balanced">Balanced</button>
+    <button type="button" class="tpl-btn" data-template="permissive">Permissive</button>
+    <button type="button" class="tpl-btn reset" data-template="empty">Empty</button>
+  </section>
+
+  <section class="csp-options">
+    <label>
+      <input type="checkbox" id="report-only" />
+      <span>Report-only mode (test without blocking — uses <code>Content-Security-Policy-Report-Only</code> header)</span>
+    </label>
+  </section>
+
+  <section id="builder-grid" class="builder-grid">
+    <!-- Directive cards rendered by JS -->
+  </section>
+
+  <section class="policy-preview">
+    <h2>Generated policy</h2>
+    <pre id="policy-output"><code></code></pre>
+  </section>
+
+  <section class="fix-snippets">
+    <h4>Fix it</h4>
+    <div class="tabs" role="tablist">
+      <button class="tab-btn active" data-target="csp-nginx">Nginx</button>
+      <button class="tab-btn" data-target="csp-apache">Apache</button>
+      <button class="tab-btn" data-target="csp-cloudflare">Cloudflare</button>
+    </div>
+    <div class="tab-panels">
+      <div id="csp-nginx" class="tab-panel active">
+        <div class="snippet-location">
+          <strong>Where:</strong> Add inside your <code>server</code> block — e.g. <code>/etc/nginx/sites-available/yoursite</code>. Reload: <code>sudo nginx -s reload</code>
+        </div>
+        <div class="snippet-code">
+          <button class="copy-btn" type="button">Copy</button>
+          <pre><code id="snippet-nginx-code"></code></pre>
+        </div>
+      </div>
+      <div id="csp-apache" class="tab-panel">
+        <div class="snippet-location">
+          <strong>Where:</strong> Add to <code>.htaccess</code> in your site root, or to your <code>VirtualHost</code> config. Requires <code>mod_headers</code>.
+        </div>
+        <div class="snippet-code">
+          <button class="copy-btn" type="button">Copy</button>
+          <pre><code id="snippet-apache-code"></code></pre>
+        </div>
+      </div>
+      <div id="csp-cloudflare" class="tab-panel">
+        <div class="snippet-location">
+          <strong>Where:</strong> Apply via Cloudflare Dashboard. See snippet for navigation path.
+        </div>
+        <div class="snippet-code">
+          <button class="copy-btn" type="button">Copy</button>
+          <pre><code id="snippet-cloudflare-code"></code></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+</Layout>
+
+<script>
+  type Policy = Record<string, string[]>;
+
+  const DIRECTIVES = [
+    { id: 'default-src', desc: 'Fallback for other fetch directives when not specified.' },
+    { id: 'script-src', desc: 'Sources allowed for JavaScript.' },
+    { id: 'style-src', desc: 'Sources allowed for stylesheets.' },
+    { id: 'img-src', desc: 'Sources allowed for images.' },
+    { id: 'font-src', desc: 'Sources allowed for fonts.' },
+    { id: 'connect-src', desc: 'Targets for fetch, XHR, WebSocket, EventSource.' },
+    { id: 'media-src', desc: 'Sources for <audio> and <video>.' },
+    { id: 'frame-src', desc: 'Sources allowed inside <iframe>.' },
+    { id: 'frame-ancestors', desc: 'Which origins may embed this page in an iframe.' },
+    { id: 'form-action', desc: 'URLs forms on this page may submit to.' },
+    { id: 'base-uri', desc: 'Restricts URLs allowed in the <base> element.' },
+    { id: 'object-src', desc: 'Sources for <object>, <embed>, <applet>. Set to \'none\' if unused.' },
+  ];
+
+  const QUICK_SOURCES = ["'self'", "'none'", "'unsafe-inline'", "'unsafe-eval'", "https:", "data:", "blob:", "*"];
+
+  const RISKY: Record<string, string> = {
+    "'unsafe-inline'": "Allows inline scripts/styles — defeats most XSS protection.",
+    "'unsafe-eval'": "Allows eval() and similar — undermines CSP's main XSS protection.",
+    "*": "Wildcard — allows any source. Essentially turns CSP off.",
+    "https:": "Allows any HTTPS source. Very permissive.",
+    "data:": "Allows data: URIs. Risky for script-src and style-src."
+  };
+
+  const TEMPLATES: Record<string, Policy> = {
+    strict: {
+      'default-src': ["'self'"],
+      'script-src': ["'self'"],
+      'style-src': ["'self'"],
+      'img-src': ["'self'", "data:", "https:"],
+      'font-src': ["'self'"],
+      'connect-src': ["'self'"],
+      'frame-ancestors': ["'none'"],
+      'form-action': ["'self'"],
+      'base-uri': ["'self'"],
+      'object-src': ["'none'"]
+    },
+    balanced: {
+      'default-src': ["'self'"],
+      'script-src': ["'self'"],
+      'style-src': ["'self'", "'unsafe-inline'"],
+      'img-src': ["'self'", "data:", "https:"],
+      'font-src': ["'self'", "data:"],
+      'connect-src': ["'self'"],
+      'frame-src': ["'self'"],
+      'frame-ancestors': ["'self'"],
+      'form-action': ["'self'"],
+      'base-uri': ["'self'"],
+      'object-src': ["'none'"]
+    },
+    permissive: {
+      'default-src': ["'self'", "https:"],
+      'script-src': ["'self'", "'unsafe-inline'", "https:"],
+      'style-src': ["'self'", "'unsafe-inline'", "https:"],
+      'img-src': ["*"],
+      'font-src': ["*"],
+      'connect-src': ["'self'", "https:"],
+      'frame-src': ["'self'"],
+      'frame-ancestors': ["'self'"]
+    },
+    empty: {}
+  };
+
+  let policy: Policy = clone(TEMPLATES.strict);
+  let reportOnly = false;
+
+  function clone<T>(o: T): T { return JSON.parse(JSON.stringify(o)); }
+  function escapeHtml(s: string) {
+    return s.replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]!));
+  }
+
+  function renderDirectiveCard(d: typeof DIRECTIVES[number]): string {
+    const enabled = d.id in policy;
+    const sources = policy[d.id] || [];
+
+    const sourcesHtml = enabled ? `
+      <div class="sources-list">
+        ${sources.length === 0
+          ? `<span class="no-sources">No sources yet — add one below.</span>`
+          : sources.map(s => `
+            <span class="source-chip ${RISKY[s] ? 'risky' : ''}" title="${RISKY[s] ? escapeHtml(RISKY[s]) : ''}">
+              ${escapeHtml(s)}
+              <button type="button" class="chip-remove" data-remove-source="${escapeHtml(s)}">×</button>
+            </span>
+          `).join('')}
+      </div>
+      <div class="quick-add-row">
+        ${QUICK_SOURCES.map(s => `
+          <button type="button" class="quick-btn ${sources.includes(s) ? 'active' : ''} ${RISKY[s] ? 'risky' : ''}" data-quick-source="${escapeHtml(s)}">${escapeHtml(s)}</button>
+        `).join('')}
+      </div>
+      <div class="custom-add">
+        <input type="text" placeholder="https://example.com or https://*.example.com" data-custom-input />
+        <button type="button" data-custom-add>Add</button>
+      </div>
+    ` : `<p class="disabled-note">Disabled — this directive is not included in the policy.</p>`;
+
+    return `
+      <article class="directive-card ${enabled ? '' : 'disabled'}" data-directive="${d.id}">
+        <header class="directive-header">
+          <div>
+            <h3>${d.id}</h3>
+            <p class="directive-desc">${escapeHtml(d.desc)}</p>
+          </div>
+          <button type="button" class="toggle-btn ${enabled ? 'on' : 'off'}" data-toggle aria-pressed="${enabled}">
+            ${enabled ? 'ON' : 'OFF'}
+          </button>
+        </header>
+        ${sourcesHtml}
+      </article>
+    `;
+  }
+
+  function policyString(): string {
+    return Object.entries(policy)
+      .filter(([_, s]) => s.length > 0)
+      .map(([d, s]) => `${d} ${s.join(' ')}`)
+      .join('; ');
+  }
+
+  function policyMultiline(): string {
+    return Object.entries(policy)
+      .filter(([_, s]) => s.length > 0)
+      .map(([d, s]) => `${d} ${s.join(' ')};`)
+      .join('\n');
+  }
+
+  function renderAll() {
+    const grid = document.getElementById('builder-grid')!;
+    grid.innerHTML = DIRECTIVES.map(renderDirectiveCard).join('');
+
+    const out = document.querySelector('#policy-output code')!;
+    const ml = policyMultiline();
+    out.textContent = ml || '/* No directives enabled. Pick a template or toggle a directive on. */';
+
+    const headerName = reportOnly ? 'Content-Security-Policy-Report-Only' : 'Content-Security-Policy';
+    const oneLine = policyString();
+
+    const nginx = oneLine
+      ? `add_header ${headerName} "${oneLine}" always;`
+      : '# Policy is empty';
+    const apache = oneLine
+      ? `Header always set ${headerName} "${oneLine}"`
+      : '# Policy is empty';
+    const cloudflare = oneLine
+      ? `# Cloudflare Dashboard → Rules → Transform Rules → Modify Response Header\n# Header name:  ${headerName}\n# Header value: ${oneLine}`
+      : '# Policy is empty';
+
+    (document.getElementById('snippet-nginx-code')!).textContent = nginx;
+    (document.getElementById('snippet-apache-code')!).textContent = apache;
+    (document.getElementById('snippet-cloudflare-code')!).textContent = cloudflare;
+  }
+
+  // Event delegation
+  document.addEventListener('click', async (e) => {
+    const t = e.target as HTMLElement;
+
+    // Template buttons
+    const tplBtn = t.closest('[data-template]') as HTMLElement | null;
+    if (tplBtn) {
+      const tpl = tplBtn.dataset.template!;
+      policy = clone(TEMPLATES[tpl] || {});
+      renderAll();
+      return;
+    }
+
+    // Toggle directive
+    if (t.matches('[data-toggle]')) {
+      const card = t.closest('.directive-card') as HTMLElement;
+      const id = card.dataset.directive!;
+      if (id in policy) {
+        delete policy[id];
+      } else {
+        policy[id] = ["'self'"];
+      }
+      renderAll();
+      return;
+    }
+
+    // Remove source
+    if (t.matches('[data-remove-source]')) {
+      const card = t.closest('.directive-card') as HTMLElement;
+      const id = card.dataset.directive!;
+      const src = t.dataset.removeSource!;
+      policy[id] = policy[id].filter(s => s !== src);
+      renderAll();
+      return;
+    }
+
+    // Quick add (toggle on/off)
+    if (t.matches('[data-quick-source]')) {
+      const card = t.closest('.directive-card') as HTMLElement;
+      const id = card.dataset.directive!;
+      const src = t.dataset.quickSource!;
+      if (policy[id].includes(src)) {
+        policy[id] = policy[id].filter(s => s !== src);
+      } else {
+        policy[id].push(src);
+      }
+      renderAll();
+      return;
+    }
+
+    // Custom add
+    if (t.matches('[data-custom-add]')) {
+      const card = t.closest('.directive-card') as HTMLElement;
+      const id = card.dataset.directive!;
+      const input = card.querySelector('[data-custom-input]') as HTMLInputElement;
+      const val = input.value.trim();
+      if (val && !policy[id].includes(val)) {
+        policy[id].push(val);
+        renderAll();
+      }
+      return;
+    }
+
+    // Tab switching
+    if (t.classList.contains('tab-btn')) {
+      const target = t.dataset.target;
+      if (!target) return;
+      const block = t.closest('.fix-snippets')!;
+      block.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      block.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      t.classList.add('active');
+      block.querySelector('#' + target)?.classList.add('active');
+      return;
+    }
+
+    // Copy button
+    if (t.classList.contains('copy-btn')) {
+      const panel = t.closest('.tab-panel');
+      const code = panel?.querySelector('pre code')?.textContent;
+      if (!code) return;
+      try {
+        await navigator.clipboard.writeText(code);
+        const original = t.textContent;
+        t.textContent = 'Copied!';
+        t.classList.add('copied');
+        setTimeout(() => { t.textContent = original; t.classList.remove('copied'); }, 1800);
+      } catch {
+        t.textContent = 'Copy failed';
+      }
+      return;
+    }
+  });
+
+  // Handle Enter key in custom input
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    const t = e.target as HTMLElement;
+    if (!t.matches('[data-custom-input]')) return;
+    e.preventDefault();
+    const card = t.closest('.directive-card') as HTMLElement;
+    const addBtn = card.querySelector('[data-custom-add]') as HTMLButtonElement;
+    addBtn?.click();
+  });
+
+  // Report-only toggle
+  document.getElementById('report-only')?.addEventListener('change', (e) => {
+    reportOnly = (e.target as HTMLInputElement).checked;
+    renderAll();
+  });
+
+  // Initial render
+  renderAll();
+</script>
+
+<style is:global>
+  .csp-templates {
+    display: flex; align-items: center; gap: 0.5rem;
+    flex-wrap: wrap; margin: 2rem 0 0.75rem;
+    background: var(--bg-elev); border: 1px solid var(--border);
+    border-radius: 10px; padding: 0.85rem 1.1rem;
+  }
+  .csp-templates .label {
+    color: var(--text-dim); font-size: 0.85rem;
+    font-family: var(--font-mono); margin-right: 0.25rem;
+  }
+  .tpl-btn {
+    background: var(--bg-elev-2); border: 1px solid var(--border);
+    color: var(--text); padding: 0.45rem 0.9rem;
+    border-radius: 6px; font-size: 0.85rem;
+    font-family: var(--font-mono); cursor: pointer;
+    transition: all 0.15s;
+  }
+  .tpl-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .tpl-btn.reset { color: var(--text-faint); }
+
+  .csp-options {
+    margin: 0 0 1.5rem;
+    background: var(--bg-elev); border: 1px solid var(--border);
+    border-radius: 10px; padding: 0.85rem 1.1rem;
+  }
+  .csp-options label {
+    display: flex; align-items: center; gap: 0.5rem;
+    cursor: pointer; font-size: 0.9rem; color: var(--text-dim);
+  }
+  .csp-options code {
+    background: var(--bg-elev-2); padding: 0.1rem 0.35rem;
+    border-radius: 3px; font-size: 0.85em; color: var(--accent-bright);
+    font-family: var(--font-mono);
+  }
+
+  .builder-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    gap: 0.85rem;
+    margin-bottom: 2rem;
+  }
+
+  .directive-card {
+    background: var(--bg-elev); border: 1px solid var(--border);
+    border-radius: 10px; padding: 1rem 1.1rem;
+    transition: opacity 0.15s;
+  }
+  .directive-card.disabled { opacity: 0.55; }
+
+  .directive-header {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 0.5rem; margin-bottom: 0.6rem;
+  }
+  .directive-header h3 {
+    margin: 0; font-size: 0.95rem;
+    font-family: var(--font-mono); color: var(--text);
+  }
+  .directive-desc {
+    margin: 0.2rem 0 0; font-size: 0.78rem;
+    color: var(--text-faint); line-height: 1.45;
+  }
+
+  .toggle-btn {
+    background: var(--bg-elev-2); border: 1px solid var(--border);
+    color: var(--text-faint); padding: 0.35rem 0.7rem;
+    border-radius: 5px; cursor: pointer;
+    font-family: var(--font-mono); font-size: 0.72rem;
+    font-weight: 600; letter-spacing: 0.05em;
+    transition: all 0.15s; flex-shrink: 0;
+  }
+  .toggle-btn.on {
+    background: rgba(56, 189, 248, 0.12);
+    color: var(--accent); border-color: var(--accent);
+  }
+  .toggle-btn:hover { transform: translateY(-1px); }
+
+  .sources-list {
+    display: flex; flex-wrap: wrap; gap: 0.35rem;
+    margin: 0.5rem 0;
+    min-height: 1.5rem;
+  }
+  .no-sources {
+    color: var(--text-faint); font-size: 0.8rem; font-style: italic;
+  }
+  .source-chip {
+    display: inline-flex; align-items: center; gap: 0.25rem;
+    background: var(--bg-elev-2); border: 1px solid var(--border);
+    padding: 0.2rem 0.3rem 0.2rem 0.55rem; border-radius: 4px;
+    font-family: var(--font-mono); font-size: 0.78rem;
+    color: var(--text);
+  }
+  .source-chip.risky {
+    border-color: rgba(245, 158, 11, 0.4);
+    background: rgba(245, 158, 11, 0.08);
+    color: var(--warning);
+  }
+  .chip-remove {
+    background: none; border: none; color: inherit;
+    cursor: pointer; padding: 0 0.25rem; font-size: 1.05rem;
+    line-height: 1; opacity: 0.7;
+  }
+  .chip-remove:hover { opacity: 1; color: var(--danger); }
+
+  .quick-add-row {
+    display: flex; flex-wrap: wrap; gap: 0.3rem;
+    margin: 0.6rem 0; padding-top: 0.6rem;
+    border-top: 1px dashed var(--border);
+  }
+  .quick-btn {
+    background: transparent; border: 1px solid var(--border);
+    color: var(--text-dim); padding: 0.25rem 0.55rem;
+    border-radius: 4px; font-family: var(--font-mono);
+    font-size: 0.75rem; cursor: pointer; transition: all 0.15s;
+  }
+  .quick-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .quick-btn.active {
+    background: rgba(56, 189, 248, 0.1);
+    border-color: var(--accent); color: var(--accent);
+  }
+  .quick-btn.risky { color: var(--warning); }
+  .quick-btn.risky:hover { border-color: var(--warning); color: var(--warning); }
+  .quick-btn.risky.active {
+    background: rgba(245, 158, 11, 0.1);
+    border-color: var(--warning); color: var(--warning);
+  }
+
+  .custom-add {
+    display: flex; gap: 0.35rem; margin-top: 0.5rem;
+  }
+  .custom-add input {
+    flex: 1; min-width: 0;
+    background: var(--bg-elev-2); border: 1px solid var(--border);
+    border-radius: 5px; padding: 0.4rem 0.6rem;
+    color: var(--text); font-size: 0.8rem;
+    font-family: var(--font-mono);
+  }
+  .custom-add input:focus { outline: none; border-color: var(--accent); }
+  .custom-add button {
+    background: var(--bg-elev-2); border: 1px solid var(--border);
+    color: var(--text); padding: 0.4rem 0.9rem;
+    border-radius: 5px; cursor: pointer; font-size: 0.8rem;
+    font-family: var(--font-mono); transition: all 0.15s;
+  }
+  .custom-add button:hover { border-color: var(--accent); color: var(--accent); }
+
+  .disabled-note {
+    color: var(--text-faint); font-size: 0.8rem;
+    margin: 0.25rem 0 0; font-style: italic;
+  }
+
+  .policy-preview {
+    margin: 2rem 0 1.5rem;
+  }
+  .policy-preview h2 {
+    font-size: 1rem; font-family: var(--font-mono);
+    color: var(--text-dim); margin: 0 0 0.5rem;
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .policy-preview pre {
+    background: var(--bg-elev); border: 1px solid var(--border);
+    border-radius: 8px; padding: 1rem 1.25rem; margin: 0;
+    overflow-x: auto; line-height: 1.6;
+  }
+  .policy-preview pre code {
+    background: none; padding: 0;
+    font-family: var(--font-mono); font-size: 0.85rem;
+    color: var(--text); white-space: pre;
+  }
+</style>
