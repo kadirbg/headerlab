@@ -1,0 +1,298 @@
+---
+import Layout from '../components/Layout.astro';
+
+const title = 'Methodology — HeaderLab';
+const description = "How HeaderLab grades HTTP security headers: scoring philosophy, header weights, CSP analysis, and what we deliberately don't check.";
+---
+
+<Layout title={title} description={description}>
+  <article class="methodology">
+    <header class="page-header">
+      <h1>How we score</h1>
+      <p class="lede">
+        HeaderLab's grade is based on what HTTP security headers your site returns and how they're configured. This page explains the scoring model behind that grade — what we check, how we weight it, and where we deliberately stop.
+      </p>
+    </header>
+
+    <section>
+      <h2>Our scoring philosophy</h2>
+
+      <p>A scanner can take two paths. It can check whether a header is <em>present</em> and call that good enough, or it can look at <em>what the header actually says</em> and grade accordingly. We do both.</p>
+
+      <p>Presence is the floor, not the ceiling. A site that sends <code>Strict-Transport-Security: max-age=0</code> technically has HSTS — but the header is disabling itself. A <code>Content-Security-Policy</code> that allows <code>'unsafe-inline'</code> and <code>*</code> is present, but it isn't really protecting much of anything.</p>
+
+      <p>So our scoring reflects two questions: is the header there, and is the configuration strong? We weight headers by the real-world impact of getting them wrong, reward configurations that match current best practice, and give partial credit where it makes sense — a CSP that blocks most attack vectors is meaningfully better than none, even if it isn't perfect.</p>
+    </section>
+
+    <section>
+      <h2>The scoring model</h2>
+
+      <p>Every scan starts at zero and earns its way up to 100. Each of the six headers we evaluate has a maximum weight, and that weight is divided between presence and configuration quality.</p>
+
+      <!-- TODO: Verify these weights against src/lib/headers.ts before launch -->
+      <p>Points are distributed across headers as follows:</p>
+
+      <ul>
+        <li><strong>Content-Security-Policy</strong> — 25</li>
+        <li><strong>Strict-Transport-Security</strong> — 20</li>
+        <li><strong>X-Frame-Options / frame-ancestors</strong> — 20</li>
+        <li><strong>Referrer-Policy</strong> — 15</li>
+        <li><strong>X-Content-Type-Options</strong> — 10</li>
+        <li><strong>Permissions-Policy</strong> — 10</li>
+      </ul>
+
+      <p>Within each header, presence earns a baseline portion of the weight. The rest is unlocked by configuration quality: a long HSTS <code>max-age</code> with <code>preload</code> earns more than a short max-age without it; a CSP using nonces and <code>strict-dynamic</code> earns more than one relying on broad allowlists.</p>
+
+      <p>Partial implementations get partial credit. A header that's present but weakly configured will still score above missing entirely — but well below a strict, modern configuration. When a header is configured in a way that <em>looks</em> protective but isn't (HSTS with <code>max-age=0</code>, CSP with <code>'unsafe-inline'</code> on <code>script-src</code>), we treat that as a soft penalty rather than a free pass.</p>
+    </section>
+
+    <section>
+      <h2>Header-by-header breakdown</h2>
+
+      <p>For each header we evaluate, this section explains what's checked, where things commonly go wrong, and what's actually being prevented when the header is set well.</p>
+
+      <article>
+        <h3>Content-Security-Policy — 25 points</h3>
+
+        <p><strong>What we check.</strong> The presence of a policy, then the strength of its directives — particularly <code>script-src</code>, <code>object-src</code>, <code>base-uri</code>, and <code>frame-ancestors</code>. We reward modern patterns (nonces, <code>'strict-dynamic'</code>, hashes) and penalize broad allowlists, wildcards, and unsafe keywords. The full set of weakness checks runs through our CSP Evaluator and is summarized in the result.</p>
+
+        <p><strong>Common pitfalls.</strong> <code>'unsafe-inline'</code> on <code>script-src</code> (the single most damaging mistake), <code>'unsafe-eval'</code> in production, wildcards like <code>*</code> or <code>https:</code> in script sources, missing <code>object-src 'none'</code> or <code>base-uri</code>, and CDNs in the allowlist that themselves host arbitrary user content.</p>
+
+        <p><strong>Why this matters.</strong> Cross-site scripting remains one of the most exploited web vulnerabilities, and CSP is the strongest browser-enforced defense against it. A strict CSP turns an XSS bug from a full account takeover into a refusal by the browser to run the injected script. A loose CSP is closer to no CSP at all.</p>
+      </article>
+
+      <article>
+        <h3>Strict-Transport-Security — 20 points</h3>
+
+        <p><strong>What we check.</strong> The presence of <code>max-age</code>, its duration, whether <code>includeSubDomains</code> is set, and whether <code>preload</code> is declared. Longer durations and broader scopes earn more credit.</p>
+
+        <p><strong>Common pitfalls.</strong> A <code>max-age</code> of zero (which disables HSTS), durations measured in days rather than months, and omitting <code>includeSubDomains</code> on sites that serve subdomain content. Preload is optional, but its absence caps the score below the maximum.</p>
+
+        <p><strong>Why this matters.</strong> Without HSTS, a single insecure request — a typed URL, an old bookmark, a stripped link — gives an on-path attacker a chance to intercept the connection before it upgrades to HTTPS. HSTS tells the browser to never try plain HTTP again; <code>preload</code> closes the first-visit gap by baking that policy into the browser itself.</p>
+      </article>
+
+      <article>
+        <h3>X-Frame-Options / frame-ancestors — 20 points</h3>
+
+        <p><strong>What we check.</strong> Either <code>X-Frame-Options</code> or the CSP <code>frame-ancestors</code> directive. We treat <code>frame-ancestors</code> as the modern equivalent and score them together rather than penalizing sites that chose one over the other. The strongest values are <code>DENY</code> / <code>'none'</code> and <code>SAMEORIGIN</code> / <code>'self'</code>.</p>
+
+        <p><strong>Common pitfalls.</strong> Setting neither, using the deprecated <code>ALLOW-FROM</code> directive (which most browsers no longer honor), or declaring a strict XFO while the CSP <code>frame-ancestors</code> is more permissive. When both are present and they disagree, modern browsers obey <code>frame-ancestors</code> — so the weaker policy wins.</p>
+
+        <p><strong>Why this matters.</strong> Without framing protection, an attacker can load your site invisibly inside their own page and trick a logged-in user into clicking buttons they can't see — confirming a transfer, changing a password, granting permissions. Clickjacking is mitigated almost entirely at the header level, which makes leaving it off an unforced error.</p>
+      </article>
+
+      <article>
+        <h3>Referrer-Policy — 15 points</h3>
+
+        <p><strong>What we check.</strong> The presence of the header and the strength of its value. <code>strict-origin-when-cross-origin</code> earns near-full credit; <code>no-referrer</code> earns full credit for sites that don't need cross-origin referrer data. Comma-separated fallback values are accepted per the spec.</p>
+
+        <p><strong>Common pitfalls.</strong> Setting <code>unsafe-url</code> (which leaks the full URL even over HTTPS), relying on the legacy <code>no-referrer-when-downgrade</code> default, or omitting the header on sites that handle tokens, search queries, or anything sensitive in URL paths.</p>
+
+        <p><strong>Why this matters.</strong> Every outbound link, image, and script your site loads can send your current URL to the destination as the <code>Referer</code>. For password reset links, search-result URLs containing user queries, or pages with session tokens in the query string, that's a quiet data leak to every third-party domain you embed.</p>
+      </article>
+
+      <article>
+        <h3>X-Content-Type-Options — 10 points</h3>
+
+        <p><strong>What we check.</strong> The presence of the header with the value <code>nosniff</code>. This is a simple binary check — the header has one valid value.</p>
+
+        <p><strong>Common pitfalls.</strong> Omitting the header entirely is the only meaningful failure.</p>
+
+        <p><strong>Why this matters.</strong> Without <code>nosniff</code>, browsers may try to guess the content type of a response — and that guess can turn an uploaded text file into executable JavaScript, or a JSON endpoint into something the browser treats as HTML. The header has no configuration to get wrong and shuts down an entire class of MIME-confusion attacks.</p>
+      </article>
+
+      <article>
+        <h3>Permissions-Policy — 10 points</h3>
+
+        <p><strong>What we check.</strong> The presence of the header and the restrictiveness of its feature allowlists. We give more credit to policies that explicitly deny powerful features the site doesn't use — camera, microphone, geolocation, payment, USB, and similar — than to permissive or empty policies.</p>
+
+        <p><strong>Common pitfalls.</strong> Omitting the header entirely is by far the most common. An empty <code>Permissions-Policy:</code> header is a no-op, and a legacy <code>Feature-Policy</code> header without a modern equivalent leaves the same gap.</p>
+
+        <p><strong>Why this matters.</strong> A compromised third-party script — an ad, an analytics SDK, a tampered CDN library — runs in your origin and inherits its capabilities. <code>Permissions-Policy</code> lets you draw a hard line: this page doesn't need the camera, the microphone, the user's location, or the payment API, and the browser will refuse those calls even if the page asks.</p>
+
+        <p class="note"><strong>A note on weighting.</strong> Permissions-Policy is currently weighted lower than other headers because browser support and best-practice consensus are still maturing. We plan to raise its weight in a future revision as the directive set stabilizes and adoption grows.</p>
+      </article>
+    </section>
+
+    <section>
+      <h2>CSP analysis approach</h2>
+
+      <p>Because Content-Security-Policy carries the largest weight and the most complexity, it gets its own evaluation pass. Our CSP Evaluator parses the policy directive by directive and runs more than fifteen weakness checks against it, then ranks the findings by severity.</p>
+
+      <h3>Severity tiers</h3>
+
+      <ul>
+        <li><strong>Critical</strong> — issues that effectively neutralize the policy. <code>'unsafe-inline'</code> on <code>script-src</code> without a nonce or hash fallback, <code>*</code> as a script source, or <code>'unsafe-eval'</code> in production.</li>
+        <li><strong>High</strong> — issues that significantly weaken protection. Wildcard subdomains, scheme-only sources like <code>https:</code>, missing <code>object-src 'none'</code>, missing <code>base-uri</code>.</li>
+        <li><strong>Medium</strong> — issues that reduce defense-in-depth. Allowlisted CDNs known to host user content, overly broad <code>default-src</code>, no <code>frame-ancestors</code> directive.</li>
+        <li><strong>Low</strong> — issues that are best-practice gaps rather than active risks. Missing <code>report-uri</code> / <code>report-to</code>, deprecated directives, redundant declarations.</li>
+      </ul>
+
+      <h3>Positive signals</h3>
+
+      <p>The evaluator also looks for modern patterns and rewards them. A policy that uses <code>'strict-dynamic'</code> with a nonce sidesteps the allowlist problem entirely. Nonce-based or hash-based script sourcing earns credit even when an allowlist is present, because the nonce gates execution regardless of host. CSP Level 3 features (Trusted Types, <code>require-trusted-types-for</code>) push the score toward the top of the range.</p>
+
+      <p>The same evaluator powers our standalone <a href="/csp-evaluator">CSP Evaluator tool</a>, so you can paste any policy and see the full breakdown — not just the score, but every finding behind it.</p>
+    </section>
+
+    <section>
+      <h2>Grade scale</h2>
+
+      <p>The final score is mapped to a letter grade. The boundaries are deliberately wider at the top — an A+ should mean something rare, and the gap between an A and an A+ should be meaningful.</p>
+
+      <table class="grade-scale">
+        <thead>
+          <tr><th>Grade</th><th>Score</th><th>What it means</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>A+</td><td>95–100</td><td>Strict, modern, minimal-attack-surface configuration.</td></tr>
+          <tr><td>A</td><td>85–94</td><td>Strong baseline with minor gaps.</td></tr>
+          <tr><td>B</td><td>75–84</td><td>Solid foundation; one or two important headers weak or missing.</td></tr>
+          <tr><td>C</td><td>60–74</td><td>Partial protection; several gaps a determined attacker could chain.</td></tr>
+          <tr><td>D</td><td>40–59</td><td>Significant exposure across multiple headers.</td></tr>
+          <tr><td>F</td><td>0–39</td><td>Little to no header-based protection.</td></tr>
+        </tbody>
+      </table>
+
+      <p>A passing grade isn't the goal — a hardened production site should aim for A or A+. Most well-known sites cluster around B, which reflects how much room there still is across the web for header-based defense.</p>
+    </section>
+
+    <section>
+      <h2>Where our scores may differ from other scanners</h2>
+
+      <p>Header scanners don't agree, and that's worth being upfront about. Run any production site through three different tools and you'll likely get three different grades. Here's where our scoring tends to land differently than others.</p>
+
+      <p><strong>We grade configuration, not just presence.</strong> A site can earn full marks for "has CSP" on a presence-only scanner while sending a policy that allows <code>'unsafe-inline'</code> on scripts. Our score will be noticeably lower in that case, because the policy isn't actually closing the gap CSP exists to close.</p>
+
+      <p><strong>We're stricter on CSP weaknesses.</strong> Our evaluator runs more than fifteen checks against the policy itself, and findings ranked critical or high will cap the CSP contribution well below its maximum even when the rest of the headers are pristine. On scanners that don't analyze CSP content, the same policy can earn full CSP credit.</p>
+
+      <p><strong>We weight Permissions-Policy.</strong> Some scanners treat Permissions-Policy as optional or bonus credit. We include it in the base score — currently at a lower weight, with plans to increase it as best practice solidifies — because we think the directive matters more as third-party script supply chains grow.</p>
+
+      <p><strong>We treat XFO and frame-ancestors as equivalent.</strong> Sites that have moved their framing policy into CSP shouldn't be penalized for dropping the legacy <code>X-Frame-Options</code> header. Some scanners still check for both independently.</p>
+
+      <p>Where our scores are lower, it usually reflects a stricter read of configuration. Where they're higher, it usually reflects credit for modern patterns that older rubrics don't recognize.</p>
+    </section>
+
+    <section>
+      <h2>What we don't check</h2>
+
+      <p>HeaderLab focuses on response headers. There's a wider security surface that headers don't cover, and we'd rather be clear about that than imply our grade is the whole picture.</p>
+
+      <ul>
+        <li><strong>TLS / SSL configuration.</strong> Cipher suites, protocol versions, certificate chain quality. Qualys SSL Labs is the canonical tool here.</li>
+        <li><strong>DNS and network controls.</strong> DNSSEC, CAA records, email authentication (SPF, DKIM, DMARC). These need DNS-level tooling.</li>
+        <li><strong>Application-layer vulnerabilities.</strong> XSS, SQL injection, IDOR, business-logic flaws. Headers can mitigate some of these — a well-configured CSP catches a class of XSS — but they aren't a substitute for secure code.</li>
+        <li><strong>Cookie security flags.</strong> <code>Secure</code>, <code>HttpOnly</code>, <code>SameSite</code>. On our roadmap; not yet scored.</li>
+      </ul>
+
+      <p>An A+ here means your headers are in good shape. It doesn't mean your site is secure.</p>
+    </section>
+
+    <section>
+      <h2>Open methodology &amp; feedback</h2>
+
+      <p>The scoring logic isn't a black box. Everything described above lives in two files in the repository:</p>
+
+      <ul>
+        <li><code>src/lib/headers.ts</code> — the per-header analyzer, including weights, presence checks, and configuration scoring.</li>
+        <li><code>src/lib/csp-evaluator.ts</code> — the CSP weakness checks and severity rankings.</li>
+      </ul>
+
+      <p>If you disagree with a weight, think a check is missing, or want to argue for a different cutoff on the grade scale, the <a href="https://github.com/kadirbg/headerlab/issues">GitHub issue tracker</a> is the right place. We'd rather have the argument in public than calibrate in private.</p>
+    </section>
+  </article>
+</Layout>
+
+<style>
+  .methodology {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 2rem 1rem 4rem;
+    line-height: 1.65;
+  }
+
+  .methodology .page-header {
+    margin-bottom: 3rem;
+  }
+
+  .methodology .lede {
+    font-size: 1.15rem;
+    color: var(--color-text-muted, #555);
+  }
+
+  .methodology section {
+    margin-bottom: 3rem;
+  }
+
+  .methodology h1 {
+    font-size: 2.25rem;
+    margin-bottom: 1rem;
+    line-height: 1.2;
+  }
+
+  .methodology h2 {
+    font-size: 1.5rem;
+    margin: 2.5rem 0 1rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid var(--color-border, #e5e7eb);
+  }
+
+  .methodology h3 {
+    font-size: 1.15rem;
+    margin: 2rem 0 0.75rem;
+  }
+
+  .methodology article {
+    margin-bottom: 2rem;
+  }
+
+  .methodology p,
+  .methodology li {
+    margin-bottom: 0.75rem;
+  }
+
+  .methodology ul {
+    padding-left: 1.4rem;
+  }
+
+  .methodology code {
+    font-size: 0.92em;
+    padding: 0.1em 0.35em;
+    background: var(--color-code-bg, rgba(0, 0, 0, 0.05));
+    border-radius: 3px;
+    font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  }
+
+  .methodology .note {
+    margin-top: 1rem;
+    padding: 0.85rem 1rem;
+    background: var(--color-note-bg, rgba(59, 130, 246, 0.08));
+    border-left: 3px solid var(--color-note-border, #3b82f6);
+    border-radius: 4px;
+    font-size: 0.95em;
+  }
+
+  .methodology .grade-scale {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0 1.5rem;
+  }
+
+  .methodology .grade-scale th,
+  .methodology .grade-scale td {
+    text-align: left;
+    padding: 0.6rem 0.8rem;
+    border-bottom: 1px solid var(--color-border, #e5e7eb);
+  }
+
+  .methodology .grade-scale th {
+    font-weight: 600;
+    background: var(--color-table-header, rgba(0, 0, 0, 0.03));
+  }
+
+  .methodology .grade-scale td:nth-child(1),
+  .methodology .grade-scale td:nth-child(2) {
+    font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+    white-space: nowrap;
+  }
+</style>

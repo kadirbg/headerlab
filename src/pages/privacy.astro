@@ -1,0 +1,159 @@
+---
+import Layout from '../components/Layout.astro';
+
+const title = 'Privacy Policy — HeaderLab';
+const description = "How HeaderLab handles data: what we collect, what we don't, and how our analytics, advertising, and email practices respect your privacy.";
+---
+
+<Layout title={title} description={description}>
+  <article class="legal-page">
+    <header class="page-header">
+      <h1>Privacy Policy</h1>
+      <p class="updated">Last updated: 17 May 2026</p>
+    </header>
+
+    <p class="lede">
+      The short version: HeaderLab doesn't track you, doesn't use cookies for analytics, doesn't share data with advertisers, and doesn't store the URLs you scan. The longer version is below.
+    </p>
+
+    <section>
+      <h2>What we collect</h2>
+
+      <p><strong>Aggregate site analytics.</strong> We use Cloudflare Web Analytics to count visits and see which pages are read. It's cookieless and doesn't fingerprint browsers; the data we see is aggregated and isn't tied to individual visitors.</p>
+
+      <p><strong>Scan requests.</strong> When you use the Headers Checker, CSP Builder, or CSP Evaluator, the URL or policy you submit is processed to generate the result. We don't keep a log of submitted URLs or policies after the response is returned.</p>
+
+      <p><strong>Email correspondence.</strong> If you email <a href="mailto:hello@headerlab.dev">hello@headerlab.dev</a>, we store and read that email in order to reply. Email is routed through Cloudflare Email Routing.</p>
+
+      <p><strong>Standard server logs.</strong> Like any service running on the public internet, our hosting provider (Cloudflare) records basic request information — IP address, user agent, request path, timestamp — as part of normal operations and abuse prevention. We don't tie these logs to identities or use them for analytics.</p>
+    </section>
+
+    <section>
+      <h2>What we don't collect</h2>
+
+      <ul>
+        <li>Analytics cookies, behavioral cookies, or any cookies used for tracking</li>
+        <li>Cross-site tracking signals or browser fingerprints</li>
+        <li>Profiles, accounts, or any data tied to a user identity</li>
+        <li>The URLs or policies you scan, after the scan completes</li>
+        <li>Anything that gets shared with third-party advertisers</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Third-party services</h2>
+
+      <p>HeaderLab runs entirely on Cloudflare:</p>
+
+      <ul>
+        <li><strong>Cloudflare Workers</strong> — hosting and request processing</li>
+        <li><strong>Cloudflare Web Analytics</strong> — cookieless visit counting</li>
+        <li><strong>Cloudflare Email Routing</strong> — forwards email sent to <code>hello@headerlab.dev</code></li>
+      </ul>
+
+      <p>That's the full list. No Google Analytics, no Facebook Pixel, no tag managers, no session recording, no marketing pixels.</p>
+    </section>
+
+    <section>
+      <h2>Advertising &amp; affiliate links</h2>
+
+      <p>HeaderLab is free and open-source. To keep it sustainable without compromising the principles above, we make two commitments.</p>
+
+      <p><strong>We do not and will not use behavioral or tracking-based advertising.</strong> That rules out Google AdSense and similar networks. If we add advertising in the future, it will be through privacy-respecting networks (for example, EthicalAds or Carbon Ads) that serve ads based on page content, not on the visitor — no cookies, no behavioral profiles, no cross-site tracking.</p>
+
+      <p><strong>We may include affiliate or referral links</strong> to security tools and services we'd recommend regardless. These use standard referral parameters and add no tracking on our side. Where required by law, and where it's simply the honest thing to do, we'll disclose the affiliate relationship near the link.</p>
+    </section>
+
+    <section>
+      <h2>Your rights</h2>
+
+      <p>Under GDPR, KVKK, and similar privacy laws, you have rights including access, correction, deletion, restriction, and portability of personal data we hold about you. Because HeaderLab doesn't maintain accounts or store personal data tied to your identity, most of these rights apply only to email correspondence you've initiated.</p>
+
+      <p>To exercise any of these rights — including deletion of email correspondence — write to <a href="mailto:hello@headerlab.dev">hello@headerlab.dev</a>.</p>
+    </section>
+
+    <section>
+      <h2>Changes to this policy</h2>
+
+      <p>When we make meaningful changes, we'll update the "Last updated" date at the top. HeaderLab's source is public, and the revision history of this page lives in our <a href="https://github.com/kadirbg/headerlab">repository</a> — so every change to this policy is visible in version control.</p>
+    </section>
+
+    <section>
+      <h2>Contact</h2>
+
+      <p>Questions or concerns about this policy: <a href="mailto:hello@headerlab.dev">hello@headerlab.dev</a>.</p>
+    </section>
+  </article>
+</Layout>
+
+<style>
+  .legal-page {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 2rem 1rem 4rem;
+    line-height: 1.65;
+  }
+
+  .legal-page .page-header {
+    margin-bottom: 2rem;
+  }
+
+  .legal-page .updated {
+    color: var(--color-text-muted, #6b7280);
+    font-size: 0.95rem;
+    margin: 0;
+  }
+
+  .legal-page .lede {
+    font-size: 1.1rem;
+    color: var(--color-text-muted, #555);
+    margin: 0 0 3rem;
+    padding: 1rem 1.2rem;
+    background: var(--color-note-bg, rgba(59, 130, 246, 0.06));
+    border-left: 3px solid var(--color-note-border, #3b82f6);
+    border-radius: 4px;
+  }
+
+  .legal-page section {
+    margin-bottom: 2.5rem;
+  }
+
+  .legal-page h1 {
+    font-size: 2.25rem;
+    margin: 0 0 0.5rem;
+    line-height: 1.2;
+  }
+
+  .legal-page h2 {
+    font-size: 1.35rem;
+    margin: 2rem 0 1rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid var(--color-border, #e5e7eb);
+  }
+
+  .legal-page p,
+  .legal-page li {
+    margin-bottom: 0.75rem;
+  }
+
+  .legal-page ul {
+    padding-left: 1.4rem;
+  }
+
+  .legal-page code {
+    font-size: 0.92em;
+    padding: 0.1em 0.35em;
+    background: var(--color-code-bg, rgba(0, 0, 0, 0.05));
+    border-radius: 3px;
+    font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  }
+
+  .legal-page a {
+    color: var(--color-link, #2563eb);
+    text-decoration: underline;
+  }
+
+  .legal-page a:hover {
+    text-decoration: none;
+  }
+</style>
