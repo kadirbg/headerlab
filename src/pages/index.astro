@@ -246,19 +246,4 @@ const tools = [
   .hero-scan-hint a:hover { color: var(--accent); }
 </style>
 
-<script>
-  const form = document.getElementById('hero-scan');
-  const input = document.getElementById('hero-url-input');
-
-  if (form && input) {
-    form.addEventListener('submit', (e) => {
-      e.preventDefault();
-      let url = input.value.trim();
-      if (!url) return;
-      if (!/^https?:\/\//i.test(url)) {
-        url = 'https://' + url;
-      }
-      window.location.href = `/headers?url=${encodeURIComponent(url)}`;
-    });
-  }
-</script>
+<script type="module" src="/scripts/hero.js"></script>
