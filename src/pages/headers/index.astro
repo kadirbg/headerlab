@@ -397,6 +397,9 @@ import Layout from '../../components/Layout.astro';
           </p>
         </div>
       </div>
+      <p class="score-methodology-link">
+        <a href="/methodology">How is this scored? →</a>
+      </p>
       <div class="checks-list">${checksHtml}</div>
     `;
     results.hidden = false;
@@ -581,7 +584,23 @@ import Layout from '../../components/Layout.astro';
   .count-pass { color: var(--success); }
   .count-warn { color: var(--warning); }
   .count-fail { color: var(--danger); }
-
+  .score-methodology-link {
+    text-align: center;
+    margin: -0.5rem 0 1.5rem;
+    font-size: 0.85rem;
+    font-family: var(--font-mono);
+  }
+  .score-methodology-link a {
+    color: var(--text-faint);
+    text-decoration: none;
+    border-bottom: 1px dashed var(--border);
+    padding-bottom: 1px;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .score-methodology-link a:hover {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
   .checks-list { display: flex; flex-direction: column; gap: 0.75rem; }
 
   .check {
