@@ -1,0 +1,878 @@
+---
+export const prerender = true;
+import Layout from '../../components/Layout.astro';
+---
+
+<Layout
+  title="JWT Decoder & Security Analyzer — HeaderLab"
+  description="Decode any JSON Web Token and analyze it for security weaknesses. Detects alg=none, missing expiry, excessive lifetime, and sensitive data in the payload. 100% client-side — your token never leaves your browser."
+>
+  <section class="tool-header">
+    <a href="/" class="back-link">← All tools</a>
+    <h1>JWT Decoder &amp; Security Analyzer</h1>
+    <p class="lead">
+      Decode any JSON Web Token, inspect its claims, and audit it against
+      common security pitfalls — algorithm weaknesses, missing expiry,
+      excessive lifetime, sensitive data in the payload. Everything runs in
+      your browser; the token is never sent over the network.
+    </p>
+  </section>
+
+  <section class="decoder-input">
+    <label for="jwt-input" class="input-label">Paste a JWT</label>
+    <textarea
+      id="jwt-input"
+      rows="6"
+      placeholder="eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkphbmUgRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.signature"
+      spellcheck="false"
+      autocomplete="off"
+    ></textarea>
+    <div class="input-actions">
+      <button id="decode-btn" type="button">Decode</button>
+      <button id="clear-btn" type="button" class="btn-secondary">Clear</button>
+      <div class="examples">
+        <span class="examples-label">Try:</span>
+        <button class="example-btn" type="button" data-example="valid">valid token</button>
+        <button class="example-btn" type="button" data-example="expired">expired</button>
+        <button class="example-btn" type="button" data-example="weak">alg: none (weak)</button>
+      </div>
+    </div>
+    <p class="form-hint">
+      <strong>100% client-side.</strong> Your token never leaves this page —
+      decoding and analysis happen entirely in your browser.
+    </p>
+  </section>
+
+  <section id="results" class="results" hidden></section>
+
+  <section class="content-section">
+    <h2>What Is a JSON Web Token?</h2>
+    <p>
+      A <strong>JSON Web Token</strong> (JWT, pronounced "jot") is a compact,
+      URL-safe way to transmit signed claims between two parties. The most
+      common use is authentication: after a user signs in, the server hands
+      back a JWT, the client stores it, and every subsequent request includes
+      it in an <code>Authorization: Bearer &lt;token&gt;</code> header. The
+      server verifies the signature, reads the claims, and trusts the
+      identity inside without needing a session lookup.
+    </p>
+    <p>
+      A JWT is three base64url-encoded segments separated by dots:
+      <code>header.payload.signature</code>. The header declares the signing
+      algorithm. The payload contains the claims. The signature ties the two
+      together with a secret (HMAC) or a private key (RSA, ECDSA, EdDSA).
+    </p>
+
+    <h2>Is a JWT Encrypted?</h2>
+    <p>
+      <strong>No.</strong> A JWT is signed, not encrypted. Anyone with the
+      token can base64-decode the payload and read every claim. That includes
+      attackers who intercept the token, log-aggregation systems that store
+      requests, and front-end developers debugging in the browser DevTools.
+    </p>
+    <p>
+      Treat the payload as public-by-design. Never put passwords, API keys,
+      personal financial data, or anything else you wouldn't print on a
+      postcard. If you genuinely need to transport secrets in a token, use
+      <strong>JWE</strong> (JSON Web Encryption) — the encrypted counterpart
+      defined in RFC 7516.
+    </p>
+
+    <h2>What This Tool Checks</h2>
+
+    <h3>Algorithm weaknesses</h3>
+    <p>
+      The <code>alg</code> field in the JWT header decides how the signature
+      is verified. A misconfigured server that accepts <code>alg: none</code>
+      will trust any token, even one constructed by an attacker — the
+      single most well-known JWT vulnerability. Symmetric algorithms
+      (<code>HS256</code>, <code>HS384</code>, <code>HS512</code>) are also
+      worth flagging, because servers that accept multiple algorithm types
+      are vulnerable to <em>algorithm confusion</em> attacks where an
+      attacker uses the RSA public key as an HMAC secret. This tool surfaces
+      both classes.
+    </p>
+
+    <h3>Expiration and lifetime</h3>
+    <p>
+      A token without an <code>exp</code> claim never expires from the
+      verifier's perspective. If compromised, the attacker has indefinite
+      access. We flag missing <code>exp</code>, expired tokens, tokens
+      issued in the future (a sign of clock skew or tampering), and
+      excessively long lifetimes. Industry norms: access tokens minutes to
+      hours, refresh tokens days to weeks. A 10-year access token is a
+      finding, not a feature.
+    </p>
+
+    <h3>Sensitive data in the payload</h3>
+    <p>
+      Because JWT payloads are base64-encoded (not encrypted), placing
+      secrets in claims is a common mistake. We scan claim names for
+      patterns like <code>password</code>, <code>secret</code>,
+      <code>apiKey</code>, <code>privateKey</code>, <code>creditCard</code>,
+      and other red-flag keys. If you legitimately need this data in transit,
+      use JWE or transmit it through a different channel.
+    </p>
+
+    <h3>Standard claims breakdown</h3>
+    <p>
+      The seven registered claims defined in RFC 7519 — <code>iss</code>,
+      <code>sub</code>, <code>aud</code>, <code>exp</code>, <code>nbf</code>,
+      <code>iat</code>, <code>jti</code> — get their own panel with
+      human-readable times and explanations. Custom claims appear in the raw
+      payload above.
+    </p>
+
+    <h2>Frequently Asked Questions</h2>
+
+    <h3>Is my token safe to paste here?</h3>
+    <p>
+      Yes. Decoding and analysis happen entirely client-side; the token
+      never crosses the network. You can verify this by opening your browser's
+      DevTools Network tab while pressing Decode — no requests are made.
+      The analysis engine is open source at
+      <code>src/lib/jwt-decoder.ts</code> in the
+      <a href="https://github.com/kadirbg/headerlab" target="_blank" rel="noopener">repository</a>
+      if you'd like to read it.
+    </p>
+
+    <h3>Why does the tool say my valid token is "expired"?</h3>
+    <p>
+      Tokens carry an <code>exp</code> claim with the expiration timestamp.
+      If the current time is past that timestamp, the token is expired
+      and a correctly configured server will reject it. The token still
+      decodes correctly — expiration is a runtime check, not a structural
+      issue.
+    </p>
+
+    <h3>Should I use HS256 or RS256?</h3>
+    <p>
+      For systems where the signer and verifier are the same service,
+      <code>HS256</code> with a strong shared secret is fine and faster.
+      For distributed systems where multiple services verify tokens issued
+      by one authority, <code>RS256</code> or <code>ES256</code> is
+      preferable — verifiers only need the public key, so leaking a single
+      service's key doesn't compromise the rest of the system. Always
+      configure your library to accept exactly one algorithm; never allow
+      the token to dictate which.
+    </p>
+
+    <h3>What's the difference between JWT and a session cookie?</h3>
+    <p>
+      A session cookie is an opaque identifier that points to server-side
+      state — the server looks up the session in a database on every
+      request. A JWT carries the claims themselves, signed; the server
+      trusts the signature and reads the claims without a lookup. JWTs
+      scale better for stateless APIs; sessions are easier to revoke. Many
+      production systems use both: short-lived JWTs for API access,
+      server-side state for refresh and revocation.
+    </p>
+
+    <h3>How do I revoke a JWT before it expires?</h3>
+    <p>
+      You can't, directly — that's the trade-off for statelessness. The
+      common patterns are: keep tokens short-lived (minutes) and rely on
+      refresh-token rotation; maintain a server-side denylist of revoked
+      <code>jti</code> values; or version the signing key and rotate to
+      invalidate all outstanding tokens at once. Pick based on your
+      security and operational requirements.
+    </p>
+
+    <h3>What does <code>alg: none</code> mean and why is it dangerous?</h3>
+    <p>
+      The JWT spec includes a "none" algorithm meaning the token is
+      explicitly unsigned. Some early JWT libraries accepted such tokens
+      by default — meaning an attacker could craft any payload, set the
+      algorithm to <code>none</code>, and have it trusted. Modern
+      libraries reject this by default, but the vulnerability still appears
+      in misconfigured services. This tool flags it as a critical finding.
+    </p>
+
+    <h2>Further Reading</h2>
+    <ul>
+      <li>
+        <a href="https://datatracker.ietf.org/doc/html/rfc7519" target="_blank" rel="noopener">
+          RFC 7519: JSON Web Token (JWT)
+        </a> — the spec itself.
+      </li>
+      <li>
+        <a href="https://datatracker.ietf.org/doc/html/rfc7515" target="_blank" rel="noopener">
+          RFC 7515: JSON Web Signature (JWS)
+        </a> — the signing format JWT uses.
+      </li>
+      <li>
+        <a href="https://owasp.org/www-chapter-vancouver/assets/presentations/2020-01_Attacking_and_Securing_JWT.pdf" target="_blank" rel="noopener">
+          OWASP: Attacking and Securing JWT
+        </a> — practical attack patterns and defenses.
+      </li>
+      <li>
+        <a href="https://www.rfc-editor.org/rfc/rfc8725" target="_blank" rel="noopener">
+          RFC 8725: JWT Best Current Practices
+        </a> — IETF-recommended hardening.
+      </li>
+    </ul>
+  </section>
+
+  <script type="application/ld+json" set:html={JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "Is my token safe to paste into a JWT decoder?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes, for tools like HeaderLab's JWT Decoder which run entirely client-side. The token never crosses the network. You can verify this by checking your browser's Network tab — no requests are made when decoding. The analysis engine is open source and inspectable."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Is a JWT encrypted?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "No. A JWT is signed but not encrypted. Anyone with the token can base64-decode the payload and read every claim. Treat the payload as public-by-design. If you need to transport secrets in a token, use JWE (JSON Web Encryption, RFC 7516)."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "What is the alg=none JWT vulnerability?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "The JWT spec includes a 'none' algorithm meaning the token is explicitly unsigned. Misconfigured servers that accept this algorithm will trust any token an attacker constructs. Modern libraries reject alg=none by default, but the vulnerability still appears in older or misconfigured services."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Should I use HS256 or RS256 for JWTs?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "For single-service systems, HS256 with a strong shared secret is fine. For distributed systems where multiple services verify tokens, RS256 or ES256 is preferable — verifiers only need the public key. Always configure your library to accept exactly one algorithm; never let the token dictate which."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How do I revoke a JWT before it expires?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "You cannot revoke a JWT directly — that is the trade-off for statelessness. Common patterns: keep tokens short-lived with refresh-token rotation; maintain a server-side denylist of revoked jti values; or rotate the signing key to invalidate all outstanding tokens at once."
+        }
+      }
+    ]
+  })} />
+</Layout>
+
+<script>
+  import { parseJWT, analyzeJWT, type Finding, type ClaimInfo, type JWTAnalysis, type ParsedJWT } from '../../lib/jwt-decoder';
+
+  const input = document.getElementById('jwt-input') as HTMLTextAreaElement;
+  const decodeBtn = document.getElementById('decode-btn') as HTMLButtonElement;
+  const clearBtn = document.getElementById('clear-btn') as HTMLButtonElement;
+  const results = document.getElementById('results') as HTMLElement;
+  const exampleBtns = document.querySelectorAll<HTMLButtonElement>('.example-btn');
+
+  // ─── Example token generation (dynamic timestamps for realism) ──────
+
+  function toBase64Url(obj: unknown): string {
+    const json = JSON.stringify(obj);
+    // Encode as UTF-8 → base64 → base64url
+    const utf8 = new TextEncoder().encode(json);
+    let binary = '';
+    for (let i = 0; i < utf8.length; i++) binary += String.fromCharCode(utf8[i]);
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  function makeExample(headerObj: object, payloadObj: object, sig = 'demo-signature-not-verified'): string {
+    return `${toBase64Url(headerObj)}.${toBase64Url(payloadObj)}.${sig}`;
+  }
+
+  function buildExamples(): Record<string, string> {
+    const now = Math.floor(Date.now() / 1000);
+    return {
+      valid: makeExample(
+        { alg: 'RS256', typ: 'JWT', kid: 'key-2026-01' },
+        {
+          iss: 'https://auth.example.com',
+          sub: 'user-12345',
+          aud: 'https://api.example.com',
+          exp: now + 3600,
+          iat: now - 60,
+          jti: 'a3f5c7b9-1234-5678-9abc-def012345678'
+        }
+      ),
+      expired: makeExample(
+        { alg: 'HS256', typ: 'JWT' },
+        {
+          iss: 'https://old-app.example.com',
+          sub: 'session-9876',
+          exp: now - 86400 * 3,
+          iat: now - 86400 * 4
+        }
+      ),
+      weak: makeExample(
+        { alg: 'none', typ: 'JWT' },
+        {
+          iss: 'attacker-controlled',
+          sub: 'admin',
+          role: 'superuser',
+          password: 'this-should-not-be-here',
+          exp: now + 86400 * 365 * 10
+        }
+      )
+    };
+  }
+
+  const examples = buildExamples();
+
+  // ─── JSON syntax highlighting (lightweight, no dependencies) ────────
+
+  function escapeHtml(s: string): string {
+    return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+  }
+
+  function highlightJSON(value: unknown): string {
+    const json = JSON.stringify(value, null, 2);
+    return escapeHtml(json).replace(
+      /(&quot;(?:\\.|[^&quot;\\])*&quot;(?:\s*:)?|\b(?:true|false|null)\b|-?\d+(?:\.\d+)?(?:[eE][+\-]?\d+)?)/g,
+      (match) => {
+        let cls: string;
+        if (match.startsWith('&quot;')) {
+          cls = /:$/.test(match) ? 'json-key' : 'json-string';
+        } else if (match === 'true' || match === 'false') {
+          cls = 'json-bool';
+        } else if (match === 'null') {
+          cls = 'json-null';
+        } else {
+          cls = 'json-num';
+        }
+        return `<span class="${cls}">${match}</span>`;
+      }
+    );
+  }
+
+  // ─── Render ─────────────────────────────────────────────────────────
+
+  function severityIcon(sev: Finding['severity']): string {
+    if (sev === 'critical' || sev === 'high') return '✗';
+    if (sev === 'medium' || sev === 'low') return '!';
+    return 'ⓘ';
+  }
+
+  function renderStatusValue(analysis: JWTAnalysis): { label: string; cls: string } {
+    if (analysis.isExpired) return { label: 'Expired', cls: 'status-expired' };
+    if (analysis.isNotYetValid) return { label: 'Not yet valid', cls: 'status-nyv' };
+    if (analysis.summary.critical > 0) return { label: 'Critical issues', cls: 'status-critical' };
+    return { label: 'Valid', cls: 'status-valid' };
+  }
+
+  function renderClaim(c: ClaimInfo): string {
+    const valueDisplay = typeof c.value === 'string'
+      ? `<code>${escapeHtml(JSON.stringify(c.value))}</code>`
+      : `<code>${escapeHtml(JSON.stringify(c.value))}</code>`;
+
+    const meta = c.humanReadable
+      ? `<div class="claim-time">${escapeHtml(c.humanReadable)}</div>`
+      : '';
+
+    const statusBadge = c.status === 'expired' ? '<span class="claim-status sev-critical">expired</span>'
+      : c.status === 'not-yet-valid' ? '<span class="claim-status sev-medium">not yet valid</span>'
+      : c.status === 'future-issued' ? '<span class="claim-status sev-medium">issued in future</span>'
+      : '';
+
+    return `
+      <div class="claim">
+        <div class="claim-name"><code>${escapeHtml(c.name)}</code> ${statusBadge}</div>
+        <div class="claim-body">
+          <div class="claim-value">${valueDisplay}</div>
+          ${meta}
+          <div class="claim-desc">${escapeHtml(c.description)}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderFinding(f: Finding): string {
+    const rec = f.recommendation
+      ? `<p class="finding-rec"><strong>Recommendation:</strong> ${escapeHtml(f.recommendation)}</p>`
+      : '';
+    return `
+      <article class="finding finding-${f.severity}">
+        <header class="finding-header">
+          <span class="finding-icon">${severityIcon(f.severity)}</span>
+          <div class="finding-meta">
+            <h4>${escapeHtml(f.title)}</h4>
+            <span class="severity sev-${f.severity}">${f.severity}</span>
+          </div>
+        </header>
+        <p class="finding-desc">${escapeHtml(f.description)}</p>
+        ${rec}
+      </article>
+    `;
+  }
+
+  function renderResults(parsed: ParsedJWT, analysis: JWTAnalysis) {
+    const status = renderStatusValue(analysis);
+    const algDisplay = analysis.algorithm ? `<code>${escapeHtml(analysis.algorithm)}</code>` : '<em>none declared</em>';
+
+    const sevCounts = ['critical', 'high', 'medium', 'low', 'info']
+      .map(s => {
+        const n = (analysis.summary as Record<string, number>)[s];
+        if (n === 0) return '';
+        return `<span class="sev-count sev-${s}">${n} ${s}</span>`;
+      })
+      .filter(Boolean)
+      .join('');
+
+    const claimsHtml = analysis.claims.length > 0
+      ? analysis.claims.map(renderClaim).join('')
+      : '<p class="no-claims">No standard claims found in this token.</p>';
+
+    const findingsHtml = analysis.findings.length > 0
+      ? analysis.findings
+          .slice()
+          .sort((a, b) => {
+            const order = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
+            return order[a.severity] - order[b.severity];
+          })
+          .map(renderFinding)
+          .join('')
+      : '<p class="no-findings">No security issues detected.</p>';
+
+    results.innerHTML = `
+      <div class="result-status">
+        <div class="status-grid">
+          <div class="status-cell">
+            <div class="status-label">Status</div>
+            <div class="status-value ${status.cls}">${status.label}</div>
+          </div>
+          <div class="status-cell">
+            <div class="status-label">Algorithm</div>
+            <div class="status-value">${algDisplay}</div>
+          </div>
+          <div class="status-cell status-cell-wide">
+            <div class="status-label">Findings</div>
+            <div class="status-value status-counts">
+              ${sevCounts || '<span class="sev-count sev-info">0 issues</span>'}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="parts-grid">
+        <article class="part-panel">
+          <header class="part-header">
+            <h3>Header</h3>
+            <button class="copy-btn" type="button" data-copy-json="header">Copy</button>
+          </header>
+          <div class="part-raw">${escapeHtml(parsed.raw.header)}</div>
+          <pre class="part-json"><code>${highlightJSON(parsed.header)}</code></pre>
+        </article>
+
+        <article class="part-panel">
+          <header class="part-header">
+            <h3>Payload</h3>
+            <button class="copy-btn" type="button" data-copy-json="payload">Copy</button>
+          </header>
+          <div class="part-raw">${escapeHtml(parsed.raw.payload)}</div>
+          <pre class="part-json"><code>${highlightJSON(parsed.payload)}</code></pre>
+        </article>
+
+        <article class="part-panel part-panel-sig">
+          <header class="part-header">
+            <h3>Signature</h3>
+            <button class="copy-btn" type="button" data-copy-raw="signature">Copy</button>
+          </header>
+          <div class="part-raw">${escapeHtml(parsed.raw.signature) || '<em>(empty)</em>'}</div>
+          <p class="part-sig-note">
+            Signature verification is on the v1.5 roadmap. To verify now, paste the
+            token and key into your library of choice and check the result against
+            the decoded claims above.
+          </p>
+        </article>
+      </div>
+
+      <section class="claims-section">
+        <h3>Standard claims</h3>
+        <div class="claims-list">${claimsHtml}</div>
+      </section>
+
+      <section class="security-section">
+        <h3>Security analysis</h3>
+        <div class="findings-list">${findingsHtml}</div>
+      </section>
+    `;
+    results.hidden = false;
+
+    // Store parsed data for copy buttons
+    (results as HTMLElement & { __parsed?: ParsedJWT }).__parsed = parsed;
+  }
+
+  function renderError(message: string) {
+    results.innerHTML = `<div class="error-box"><strong>Error:</strong> ${escapeHtml(message)}</div>`;
+    results.hidden = false;
+  }
+
+  // ─── Actions ────────────────────────────────────────────────────────
+
+  function decode() {
+    const token = input.value;
+    if (!token.trim()) {
+      results.hidden = true;
+      return;
+    }
+    const parseResult = parseJWT(token);
+    if (!parseResult.ok) {
+      renderError(parseResult.error);
+      return;
+    }
+    const analysis = analyzeJWT(parseResult.data);
+    renderResults(parseResult.data, analysis);
+  }
+
+  decodeBtn.addEventListener('click', decode);
+
+  clearBtn.addEventListener('click', () => {
+    input.value = '';
+    results.hidden = true;
+    input.focus();
+  });
+
+  // Ctrl/Cmd + Enter to decode
+  input.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      decode();
+    }
+  });
+
+  // Example buttons
+  exampleBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.example;
+      if (!key) return;
+      const token = examples[key];
+      if (!token) return;
+      input.value = token;
+      decode();
+    });
+  });
+
+  // Copy handlers (event delegation on results)
+  results.addEventListener('click', async (e) => {
+    const target = e.target as HTMLElement;
+    if (!target.classList.contains('copy-btn')) return;
+
+    const parsed = (results as HTMLElement & { __parsed?: ParsedJWT }).__parsed;
+    if (!parsed) return;
+
+    let textToCopy = '';
+    if (target.dataset.copyJson === 'header') {
+      textToCopy = JSON.stringify(parsed.header, null, 2);
+    } else if (target.dataset.copyJson === 'payload') {
+      textToCopy = JSON.stringify(parsed.payload, null, 2);
+    } else if (target.dataset.copyRaw === 'signature') {
+      textToCopy = parsed.raw.signature;
+    }
+
+    if (!textToCopy) return;
+
+    try {
+      await navigator.clipboard.writeText(textToCopy);
+      const original = target.textContent;
+      target.textContent = 'Copied!';
+      target.classList.add('copied');
+      setTimeout(() => {
+        target.textContent = original;
+        target.classList.remove('copied');
+      }, 1800);
+    } catch {
+      target.textContent = 'Copy failed';
+      setTimeout(() => { target.textContent = 'Copy'; }, 1800);
+    }
+  });
+</script>
+
+<style is:global>
+  .decoder-input { margin: 2rem 0; }
+
+  .input-label {
+    display: block;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-faint);
+    margin-bottom: 0.5rem;
+    font-family: var(--font-mono);
+  }
+
+  #jwt-input {
+    width: 100%;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    line-height: 1.55;
+    resize: vertical;
+    min-height: 140px;
+    word-break: break-all;
+  }
+  #jwt-input:focus { outline: none; border-color: var(--accent); }
+
+  .input-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+    margin: 0.75rem 0;
+  }
+
+  #decode-btn {
+    background: var(--accent); color: var(--bg); border: none;
+    border-radius: 8px; padding: 0.65rem 1.5rem;
+    font-weight: 600; cursor: pointer; font-size: 0.95rem;
+    transition: background 0.15s;
+  }
+  #decode-btn:hover { background: var(--accent-bright); }
+
+  .btn-secondary {
+    background: transparent; color: var(--text-dim);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 0.65rem 1.25rem; cursor: pointer; font-size: 0.95rem;
+    transition: all 0.15s;
+  }
+  .btn-secondary:hover { color: var(--text); border-color: var(--text-dim); }
+
+  .examples {
+    display: flex; align-items: center; flex-wrap: wrap;
+    gap: 0.4rem; margin-left: auto;
+  }
+  .examples-label { font-size: 0.85rem; color: var(--text-faint); margin-right: 0.25rem; }
+  .example-btn {
+    background: var(--bg-elev); color: var(--text-dim);
+    border: 1px solid var(--border); border-radius: 5px;
+    padding: 0.35rem 0.75rem; font-size: 0.8rem;
+    font-family: var(--font-mono); cursor: pointer;
+    transition: all 0.15s;
+  }
+  .example-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+  /* Result status */
+  .result-status {
+    background: var(--bg-elev); border: 1px solid var(--border);
+    border-radius: 10px; padding: 1.25rem; margin: 2rem 0 1.5rem;
+  }
+
+  .status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 1rem;
+  }
+  .status-cell-wide { grid-column: 1 / -1; }
+  @media (min-width: 700px) {
+    .status-cell-wide { grid-column: auto; min-width: 250px; }
+  }
+
+  .status-label {
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--text-faint); margin-bottom: 0.35rem;
+    font-family: var(--font-mono);
+  }
+  .status-value { font-size: 1.05rem; font-weight: 600; }
+  .status-value code { font-family: var(--font-mono); color: var(--accent-bright); }
+
+  .status-valid { color: var(--success); }
+  .status-expired { color: var(--danger); }
+  .status-nyv { color: var(--warning); }
+  .status-critical { color: var(--danger); }
+
+  .status-counts { display: flex; flex-wrap: wrap; gap: 0.4rem; font-weight: 400; font-size: 0.85rem; }
+  .sev-count {
+    padding: 0.2rem 0.55rem; border-radius: 4px;
+    font-family: var(--font-mono); font-size: 0.78rem;
+  }
+  .sev-count.sev-critical { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+  .sev-count.sev-high { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+  .sev-count.sev-medium { background: rgba(56, 189, 248, 0.15); color: var(--accent); }
+  .sev-count.sev-low { background: rgba(156, 163, 175, 0.15); color: var(--text-dim); }
+  .sev-count.sev-info { background: rgba(156, 163, 175, 0.1); color: var(--text-faint); }
+
+  /* Parts grid */
+  .parts-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .part-panel {
+    background: var(--bg-elev); border: 1px solid var(--border);
+    border-radius: 10px; overflow: hidden;
+  }
+
+  .part-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.85rem 1.1rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-elev-2);
+  }
+  .part-header h3 {
+    margin: 0; font-size: 0.85rem; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--text-faint);
+    font-family: var(--font-mono); font-weight: 600;
+  }
+
+  .part-raw {
+    font-family: var(--font-mono); font-size: 0.75rem;
+    color: var(--text-faint); padding: 0.75rem 1.1rem;
+    background: var(--bg); border-bottom: 1px solid var(--border);
+    word-break: break-all; line-height: 1.5;
+    max-height: 4.5em; overflow: hidden;
+    position: relative;
+  }
+
+  .part-json {
+    margin: 0; padding: 1rem 1.1rem;
+    background: var(--bg-elev);
+    font-family: var(--font-mono); font-size: 0.85rem;
+    line-height: 1.55; overflow-x: auto;
+  }
+  .part-json code { font-family: inherit; color: var(--text); }
+
+  .json-key { color: var(--accent-bright); }
+  .json-string { color: var(--success); }
+  .json-num { color: var(--warning); }
+  .json-bool { color: var(--accent); }
+  .json-null { color: var(--text-faint); font-style: italic; }
+
+  .part-panel-sig .part-raw { max-height: none; }
+  .part-sig-note {
+    margin: 0; padding: 0.85rem 1.1rem;
+    background: var(--bg-elev); color: var(--text-dim);
+    font-size: 0.85rem; line-height: 1.55;
+  }
+
+  /* Claims */
+  .claims-section { margin-bottom: 1.5rem; }
+  .claims-section h3,
+  .security-section h3 {
+    font-size: 1.15rem; margin: 0 0 0.85rem;
+    font-family: var(--font-mono); color: var(--text);
+  }
+
+  .claims-list {
+    display: flex; flex-direction: column;
+    background: var(--bg-elev); border: 1px solid var(--border);
+    border-radius: 10px; overflow: hidden;
+  }
+
+  .claim {
+    display: grid; grid-template-columns: 100px 1fr;
+    gap: 1rem; padding: 0.9rem 1.1rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .claim:last-child { border-bottom: none; }
+
+  .claim-name {
+    display: flex; flex-direction: column; gap: 0.35rem;
+    align-items: flex-start;
+  }
+  .claim-name code {
+    font-family: var(--font-mono); font-weight: 600;
+    color: var(--accent-bright); font-size: 0.9rem;
+  }
+  .claim-status {
+    font-size: 0.7rem; padding: 0.1rem 0.45rem; border-radius: 4px;
+    font-family: var(--font-mono); text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .claim-body { display: flex; flex-direction: column; gap: 0.35rem; }
+  .claim-value code {
+    font-family: var(--font-mono); font-size: 0.85rem;
+    color: var(--text); word-break: break-all;
+  }
+  .claim-time { font-size: 0.8rem; color: var(--text-dim); font-family: var(--font-mono); }
+  .claim-desc { font-size: 0.85rem; color: var(--text-faint); line-height: 1.5; }
+
+  .no-claims, .no-findings {
+    padding: 1.25rem; color: var(--text-dim);
+    font-style: italic; font-size: 0.9rem; margin: 0;
+  }
+
+  /* Security findings */
+  .security-section { margin-bottom: 2rem; }
+
+  .findings-list {
+    display: flex; flex-direction: column; gap: 0.75rem;
+    background: transparent;
+  }
+
+  .finding {
+    background: var(--bg-elev); border: 1px solid var(--border);
+    border-left-width: 4px; border-radius: 8px; padding: 1.1rem;
+  }
+  .finding-critical { border-left-color: var(--danger); }
+  .finding-high { border-left-color: var(--warning); }
+  .finding-medium { border-left-color: var(--accent); }
+  .finding-low { border-left-color: var(--text-dim); }
+  .finding-info { border-left-color: var(--text-faint); }
+
+  .finding-header {
+    display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;
+  }
+  .finding-icon {
+    width: 26px; height: 26px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 0.85rem; flex-shrink: 0; color: var(--bg);
+  }
+  .finding-critical .finding-icon,
+  .finding-high .finding-icon { background: var(--danger); }
+  .finding-medium .finding-icon { background: var(--accent); }
+  .finding-low .finding-icon { background: var(--text-dim); }
+  .finding-info .finding-icon { background: var(--text-faint); }
+
+  .finding-meta h4 { margin: 0; font-size: 1rem; font-family: var(--font-mono); }
+  .severity {
+    display: inline-block; font-size: 0.7rem; text-transform: uppercase;
+    padding: 0.15rem 0.5rem; border-radius: 4px; font-family: var(--font-mono);
+    margin-top: 0.2rem;
+  }
+  .sev-critical { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+  .sev-high { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+  .sev-medium { background: rgba(56, 189, 248, 0.15); color: var(--accent); }
+  .sev-low { background: rgba(156, 163, 175, 0.15); color: var(--text-dim); }
+  .sev-info { background: rgba(156, 163, 175, 0.1); color: var(--text-faint); }
+
+  .finding-desc { color: var(--text-dim); font-size: 0.92rem; line-height: 1.6; margin: 0.4rem 0; }
+  .finding-rec {
+    font-size: 0.88rem; color: var(--text); margin: 0.6rem 0 0;
+    background: rgba(56, 189, 248, 0.05); padding: 0.7rem 0.85rem;
+    border-radius: 6px; border-left: 2px solid var(--accent);
+    line-height: 1.55;
+  }
+  .finding-rec strong { color: var(--text); }
+
+  /* Reused copy button (matching headers/index.astro pattern) */
+  .copy-btn {
+    background: var(--bg-elev); border: 1px solid var(--border);
+    color: var(--text-dim); padding: 0.3rem 0.75rem;
+    font-size: 0.75rem; font-family: var(--font-mono);
+    border-radius: 4px; cursor: pointer; transition: all 0.15s;
+  }
+  .copy-btn:hover { color: var(--text); border-color: var(--text-dim); }
+  .copy-btn.copied { color: var(--success); border-color: var(--success); }
+
+  /* Error box (reused from headers checker) */
+  .error-box {
+    background: rgba(239, 68, 68, 0.1); border: 1px solid var(--danger);
+    color: var(--danger); padding: 1rem 1.25rem; border-radius: 8px;
+  }
+
+  /* Mobile: stack claims */
+  @media (max-width: 640px) {
+    .claim { grid-template-columns: 1fr; gap: 0.4rem; }
+    .examples { margin-left: 0; width: 100%; justify-content: flex-start; }
+  }
+</style>
