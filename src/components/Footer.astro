@@ -1,0 +1,126 @@
+---
+---
+
+<footer class="site-footer">
+  <div class="footer-container">
+    <div class="footer-grid">
+      <div class="footer-col">
+        <h3 class="footer-heading">Tools</h3>
+        <ul>
+          <li><a href="/headers">HTTP Security Headers Checker</a></li>
+          <li><a href="/csp">CSP Builder</a></li>
+          <li><a href="/csp-evaluator">CSP Evaluator</a></li>
+          <li><a href="/jwt">JWT Decoder</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col">
+        <h3 class="footer-heading">Resources</h3>
+        <ul>
+          <li><a href="/methodology">Methodology</a></li>
+          <li><a href="https://github.com/kadirbg/headerlab" target="_blank" rel="noopener">GitHub</a></li>
+          <li><a href="https://github.com/kadirbg/headerlab/issues" target="_blank" rel="noopener">Open an issue</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col">
+        <h3 class="footer-heading">About</h3>
+        <ul>
+          <li><a href="/about">About HeaderLab</a></li>
+          <li><a href="/privacy">Privacy Policy</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <div class="footer-copy">© 2026 HeaderLab</div>
+      <div class="footer-tagline">Privacy-first · Open source · No tracking</div>
+    </div>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    margin-top: 5rem;
+    border-top: 1px solid var(--border);
+    background: var(--bg-elev);
+  }
+
+  .footer-container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 3rem 1.5rem 2rem;
+  }
+
+  .footer-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 2rem 3rem;
+    margin-bottom: 2.5rem;
+  }
+
+  .footer-heading {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-faint);
+    margin: 0 0 1rem;
+    font-family: var(--font-mono);
+    font-weight: 500;
+  }
+
+  .footer-col ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .footer-col li {
+    margin: 0.5rem 0;
+  }
+
+  .footer-col a {
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: color 0.15s;
+    line-height: 1.5;
+    display: inline-block;
+  }
+
+  .footer-col a:hover {
+    color: var(--accent);
+  }
+
+  .footer-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 1.75rem;
+    border-top: 1px solid var(--border);
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .footer-copy,
+  .footer-tagline {
+    font-size: 0.8rem;
+    color: var(--text-faint);
+    font-family: var(--font-mono);
+  }
+
+  @media (max-width: 640px) {
+    .footer-container {
+      padding: 2.5rem 1.25rem 1.5rem;
+    }
+    .footer-grid {
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    .footer-bottom {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.5rem;
+    }
+  }
+</style>

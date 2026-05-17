@@ -5,6 +5,8 @@ interface Props {
   canonical?: string;
 }
 
+import Footer from './Footer.astro';
+
 const { title, description, canonical } = Astro.props;
 const siteUrl = "https://headerlab.dev";
 ---
@@ -19,7 +21,7 @@ const siteUrl = "https://headerlab.dev";
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="canonical" href={canonical ?? siteUrl} />
 
-<!-- Open Graph -->
+    <!-- Open Graph -->
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
@@ -38,6 +40,9 @@ const siteUrl = "https://headerlab.dev";
     <meta name="twitter:image:alt" content="HeaderLab — Modern web security toolkit" />
 
     <title>{title}</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="theme-color" content="#38bdf8" />
   </head>
   <body>
     <header class="site-header">
@@ -57,10 +62,7 @@ const siteUrl = "https://headerlab.dev";
       <slot />
     </main>
 
-    <footer class="site-footer">
-      <p>HeaderLab — Free, privacy-first web security tools.</p>
-      <p><a href="https://github.com/kadirbg/headerlab">Open source on GitHub</a></p>
-    </footer>
+    <Footer />
 
     <style is:global>
       *, *::before, *::after { box-sizing: border-box; }
@@ -149,17 +151,6 @@ const siteUrl = "https://headerlab.dev";
       .nav-links a:hover {
         color: var(--accent);
       }
-
-      .site-footer {
-        border-top: 1px solid var(--border);
-        padding: 2rem 1.5rem;
-        text-align: center;
-        font-size: 0.85rem;
-        color: var(--text-faint);
-      }
-
-      .site-footer p { margin: 0.25rem 0; }
-      .site-footer a { color: var(--text-dim); }
 
       h1, h2, h3 { margin-top: 0; }
       a { color: var(--accent); }
