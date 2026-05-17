@@ -1,0 +1,133 @@
+---
+export const prerender = true;
+import Layout from '../components/Layout.astro';
+---
+
+<Layout 
+  title="Page Not Found — HeaderLab"
+  description="The page you're looking for doesn't exist on HeaderLab."
+>
+  <section class="not-found">
+    <div class="not-found-code">404</div>
+    <h1>Page not found</h1>
+    <p class="not-found-lead">
+      That URL doesn't match any page on HeaderLab.
+      Maybe try one of the tools below.
+    </p>
+
+    <div class="tool-links-section">
+      <h2>Tools</h2>
+      <ul class="tool-links">
+        <li><a href="/headers">HTTP Security Headers Checker →</a></li>
+        <li><a href="/csp">CSP Builder →</a></li>
+        <li><a href="/csp-evaluator">CSP Evaluator →</a></li>
+        <li><a href="/jwt">JWT Decoder →</a></li>
+      </ul>
+    </div>
+
+    <p class="back-home">
+      <a href="/">← Back to homepage</a>
+    </p>
+
+    <p class="report-line">
+      If you think this is a bug,
+      <a href="https://github.com/kadirbg/headerlab/issues" target="_blank" rel="noopener">open an issue</a>.
+    </p>
+  </section>
+</Layout>
+
+<style>
+  .not-found {
+    max-width: 560px;
+    margin: 3rem auto 4rem;
+    padding: 0 1.25rem;
+    text-align: center;
+  }
+
+  .not-found-code {
+    font-family: var(--font-mono);
+    font-size: clamp(4rem, 12vw, 6.5rem);
+    font-weight: 700;
+    line-height: 1;
+    color: var(--accent);
+    letter-spacing: -0.04em;
+    margin-bottom: 1.25rem;
+  }
+
+  .not-found h1 {
+    font-size: 1.75rem;
+    margin: 0 0 1rem;
+    letter-spacing: -0.02em;
+  }
+
+  .not-found-lead {
+    font-size: 1.05rem;
+    color: var(--text-dim);
+    line-height: 1.6;
+    margin: 0 0 3rem;
+  }
+
+  .tool-links-section h2 {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-faint);
+    margin: 0 0 0.75rem;
+    font-family: var(--font-mono);
+    font-weight: 500;
+  }
+
+  .tool-links {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 2.5rem;
+    display: inline-flex;
+    flex-direction: column;
+    text-align: left;
+    gap: 0.35rem;
+  }
+
+  .tool-links a {
+    color: var(--text);
+    text-decoration: none;
+    font-family: var(--font-mono);
+    font-size: 0.95rem;
+    transition: color 0.15s;
+    padding: 0.35rem 0;
+    display: inline-block;
+  }
+
+  .tool-links a:hover { color: var(--accent); }
+
+  .back-home {
+    margin: 0 0 2rem;
+  }
+
+  .back-home a {
+    color: var(--text);
+    text-decoration: none;
+    font-size: 1rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 2px;
+    transition: all 0.15s;
+  }
+
+  .back-home a:hover {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  .report-line {
+    font-size: 0.85rem;
+    color: var(--text-faint);
+    margin: 0;
+  }
+
+  .report-line a {
+    color: var(--text-dim);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .report-line a:hover { color: var(--accent); }
+</style>
