@@ -106,7 +106,12 @@ const siteUrl = "https://headerlab.dev";
         width: 100%;
       }
 
+      /* ===== Sticky nav header ===== */
       .site-header {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        background: var(--bg);
         border-bottom: 1px solid var(--border);
       }
 
@@ -268,7 +273,8 @@ const siteUrl = "https://headerlab.dev";
         white-space: pre;
       }
 
-      .copy-btn {
+      /* Copy button — scoped to snippet code blocks only */
+      .snippet-code .copy-btn {
         position: absolute;
         top: 0.65rem;
         right: 0.65rem;
@@ -283,8 +289,8 @@ const siteUrl = "https://headerlab.dev";
         transition: all 0.15s;
         z-index: 1;
       }
-      .copy-btn:hover { color: var(--text); border-color: var(--text-dim); }
-      .copy-btn.copied { color: var(--success); border-color: var(--success); }
+      .snippet-code .copy-btn:hover { color: var(--text); border-color: var(--text-dim); }
+      .snippet-code .copy-btn.copied { color: var(--success); border-color: var(--success); }
     </style>
   </body>
 </html>
