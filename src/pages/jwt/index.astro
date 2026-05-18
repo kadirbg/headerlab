@@ -263,6 +263,7 @@ import Layout from '../../components/Layout.astro';
 
 <script>
   import { parseJWT, analyzeJWT, type Finding, type ClaimInfo, type JWTAnalysis, type ParsedJWT } from '../../lib/jwt-decoder';
+  import { verifyJWT, isAlgorithmSupported, getKeyHint } from '../../lib/jwt-verifier';
 
   const input = document.getElementById('jwt-input') as HTMLTextAreaElement;
   const decodeBtn = document.getElementById('decode-btn') as HTMLButtonElement;
@@ -274,7 +275,6 @@ import Layout from '../../components/Layout.astro';
 
   function toBase64Url(obj: unknown): string {
     const json = JSON.stringify(obj);
-    // Encode as UTF-8 → base64 → base64url
     const utf8 = new TextEncoder().encode(json);
     let binary = '';
     for (let i = 0; i < utf8.length; i++) binary += String.fromCharCode(utf8[i]);
@@ -437,6 +437,51 @@ import Layout from '../../components/Layout.astro';
           .join('')
       : '<p class="no-findings">No security issues detected.</p>';
 
+    // ─── Verify section: pick content based on algorithm ───
+    let verifyPanelHtml = '';
+    const algLower = (analysis.algorithm ?? '').toLowerCase();
+
+    if (algLower === 'none') {
+      verifyPanelHtml = `
+        <div class="verify-not-supported">
+          This token uses <code>alg: none</code> — there is no signature to verify.
+          Such tokens are unsigned and should never be accepted in production.
+        </div>
+      `;
+    } else if (!analysis.algorithm) {
+      verifyPanelHtml = `
+        <div class="verify-not-supported">
+          This token has no <code>alg</code> header — verification is not possible.
+        </div>
+      `;
+    } else if (!isAlgorithmSupported(analysis.algorithm)) {
+      verifyPanelHtml = `
+        <div class="verify-not-supported">
+          Signature verification for <code>${escapeHtml(analysis.algorithm)}</code> is not supported in this version.
+          Supported: HS256/384/512, RS256/384/512, ES256/384/512.
+        </div>
+      `;
+    } else {
+      const { hint, placeholder } = getKeyHint(analysis.algorithm);
+      verifyPanelHtml = `
+        <div class="verify-form">
+          <p class="verify-intro">
+            This token uses <code>${escapeHtml(analysis.algorithm)}</code>. ${escapeHtml(hint)}
+          </p>
+          <label for="verify-key-input" class="verify-label">Key</label>
+          <textarea
+            id="verify-key-input"
+            rows="4"
+            spellcheck="false"
+            autocomplete="off"
+            placeholder="${escapeHtml(placeholder)}"
+          ></textarea>
+          <button type="button" id="verify-btn" class="verify-btn">Verify signature</button>
+          <div id="verify-result" hidden></div>
+        </div>
+      `;
+    }
+
     results.innerHTML = `
       <div class="result-status">
         <div class="status-grid">
@@ -482,13 +527,13 @@ import Layout from '../../components/Layout.astro';
             <button class="copy-btn" type="button" data-copy-raw="signature">Copy</button>
           </header>
           <div class="part-raw">${escapeHtml(parsed.raw.signature) || '<em>(empty)</em>'}</div>
-          <p class="part-sig-note">
-            Signature verification is on the v1.5 roadmap. To verify now, paste the
-            token and key into your library of choice and check the result against
-            the decoded claims above.
-          </p>
         </article>
       </div>
+
+      <section class="verify-section">
+        <h3>Verify signature</h3>
+        ${verifyPanelHtml}
+      </section>
 
       <section class="claims-section">
         <h3>Standard claims</h3>
@@ -502,7 +547,7 @@ import Layout from '../../components/Layout.astro';
     `;
     results.hidden = false;
 
-    // Store parsed data for copy buttons
+    // Store parsed data for copy + verify buttons
     (results as HTMLElement & { __parsed?: ParsedJWT }).__parsed = parsed;
   }
 
@@ -556,37 +601,98 @@ import Layout from '../../components/Layout.astro';
     });
   });
 
-  // Copy handlers (event delegation on results)
+  // Event delegation on results: verify-btn + copy-btn
   results.addEventListener('click', async (e) => {
     const target = e.target as HTMLElement;
-    if (!target.classList.contains('copy-btn')) return;
 
-    const parsed = (results as HTMLElement & { __parsed?: ParsedJWT }).__parsed;
-    if (!parsed) return;
+    // Verify signature button
+    if (target.id === 'verify-btn') {
+      const keyTextarea = document.getElementById('verify-key-input') as HTMLTextAreaElement | null;
+      const resultDiv = document.getElementById('verify-result') as HTMLElement | null;
+      if (!keyTextarea || !resultDiv) return;
 
-    let textToCopy = '';
-    if (target.dataset.copyJson === 'header') {
-      textToCopy = JSON.stringify(parsed.header, null, 2);
-    } else if (target.dataset.copyJson === 'payload') {
-      textToCopy = JSON.stringify(parsed.payload, null, 2);
-    } else if (target.dataset.copyRaw === 'signature') {
-      textToCopy = parsed.raw.signature;
+      const parsed = (results as HTMLElement & { __parsed?: ParsedJWT }).__parsed;
+      if (!parsed) return;
+
+      const token = `${parsed.raw.header}.${parsed.raw.payload}.${parsed.raw.signature}`;
+      const key = keyTextarea.value;
+
+      const btn = target as HTMLButtonElement;
+      const originalText = btn.textContent;
+      btn.textContent = 'Verifying...';
+      btn.disabled = true;
+      resultDiv.hidden = true;
+
+      try {
+        const result = await verifyJWT(token, key);
+        let html = '';
+        if (!result.ok) {
+          html = `<div class="verify-result verify-error">
+            <span class="verify-icon">⚠</span>
+            <div>${escapeHtml(result.error)}</div>
+          </div>`;
+        } else if (result.valid) {
+          html = `<div class="verify-result verify-valid">
+            <span class="verify-icon">✓</span>
+            <div>
+              <strong>Signature is valid.</strong>
+              The token was signed with this key using ${escapeHtml(result.algorithm)}.
+            </div>
+          </div>`;
+        } else {
+          html = `<div class="verify-result verify-invalid">
+            <span class="verify-icon">✗</span>
+            <div>
+              <strong>Signature does not match.</strong>
+              Either the key is wrong, the token was modified, or the algorithm doesn't match.
+            </div>
+          </div>`;
+        }
+        resultDiv.innerHTML = html;
+        resultDiv.hidden = false;
+      } catch (err) {
+        resultDiv.innerHTML = `<div class="verify-result verify-error">
+          <span class="verify-icon">⚠</span>
+          <div>Unexpected error: ${escapeHtml(err instanceof Error ? err.message : 'Unknown')}</div>
+        </div>`;
+        resultDiv.hidden = false;
+      } finally {
+        btn.textContent = originalText;
+        btn.disabled = false;
+      }
+      return;
     }
 
-    if (!textToCopy) return;
+    // Copy buttons (header/payload/signature)
+    if (target.classList.contains('copy-btn')) {
+      const parsed = (results as HTMLElement & { __parsed?: ParsedJWT }).__parsed;
+      if (!parsed) return;
 
-    try {
-      await navigator.clipboard.writeText(textToCopy);
-      const original = target.textContent;
-      target.textContent = 'Copied!';
-      target.classList.add('copied');
-      setTimeout(() => {
-        target.textContent = original;
-        target.classList.remove('copied');
-      }, 1800);
-    } catch {
-      target.textContent = 'Copy failed';
-      setTimeout(() => { target.textContent = 'Copy'; }, 1800);
+      let textToCopy = '';
+      if (target.dataset.copyJson === 'header') {
+        textToCopy = JSON.stringify(parsed.header, null, 2);
+      } else if (target.dataset.copyJson === 'payload') {
+        textToCopy = JSON.stringify(parsed.payload, null, 2);
+      } else if (target.dataset.copyRaw === 'signature') {
+        textToCopy = parsed.raw.signature;
+      }
+
+      if (!textToCopy) return;
+
+      try {
+        await navigator.clipboard.writeText(textToCopy);
+        const original = target.textContent;
+        target.textContent = 'Copied!';
+        target.classList.add('copied');
+        setTimeout(() => {
+          target.textContent = original;
+          target.classList.remove('copied');
+        }, 1800);
+      } catch {
+        target.textContent = 'Copy failed';
+        setTimeout(() => { target.textContent = 'Copy'; }, 1800);
+      }
+      return;
     }
   });
 </script>
@@ -747,11 +853,6 @@ import Layout from '../../components/Layout.astro';
   .json-null { color: var(--text-faint); font-style: italic; }
 
   .part-panel-sig .part-raw { max-height: none; }
-  .part-sig-note {
-    margin: 0; padding: 0.85rem 1.1rem;
-    background: var(--bg-elev); color: var(--text-dim);
-    font-size: 0.85rem; line-height: 1.55;
-  }
 
   /* Claims */
   .claims-section { margin-bottom: 1.5rem; }
@@ -854,7 +955,7 @@ import Layout from '../../components/Layout.astro';
   }
   .finding-rec strong { color: var(--text); }
 
-  /* Reused copy button (matching headers/index.astro pattern) */
+  /* Reused copy button */
   .copy-btn {
     background: var(--bg-elev); border: 1px solid var(--border);
     color: var(--text-dim); padding: 0.3rem 0.75rem;
@@ -864,7 +965,7 @@ import Layout from '../../components/Layout.astro';
   .copy-btn:hover { color: var(--text); border-color: var(--text-dim); }
   .copy-btn.copied { color: var(--success); border-color: var(--success); }
 
-  /* Error box (reused from headers checker) */
+  /* Error box */
   .error-box {
     background: rgba(239, 68, 68, 0.1); border: 1px solid var(--danger);
     color: var(--danger); padding: 1rem 1.25rem; border-radius: 8px;
@@ -875,4 +976,143 @@ import Layout from '../../components/Layout.astro';
     .claim { grid-template-columns: 1fr; gap: 0.4rem; }
     .examples { margin-left: 0; width: 100%; justify-content: flex-start; }
   }
+
+  /* ===== JWT verify section ===== */
+  .verify-section { margin: 0 0 1.5rem; }
+
+  .verify-section h3 {
+    font-size: 1.15rem;
+    margin: 0 0 0.85rem;
+    font-family: var(--font-mono);
+    color: var(--text);
+  }
+
+  .verify-form {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem;
+  }
+
+  .verify-intro {
+    font-size: 0.92rem;
+    color: var(--text-dim);
+    line-height: 1.55;
+    margin: 0 0 1rem;
+  }
+
+  .verify-intro code {
+    font-family: var(--font-mono);
+    background: var(--bg-elev-2);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    color: var(--accent-bright);
+    font-size: 0.9em;
+  }
+
+  .verify-label {
+    display: block;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-faint);
+    margin: 0 0 0.5rem;
+    font-family: var(--font-mono);
+  }
+
+  #verify-key-input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.75rem 0.9rem;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    line-height: 1.5;
+    resize: vertical;
+    min-height: 80px;
+    word-break: break-all;
+  }
+
+  #verify-key-input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  .verify-btn {
+    margin-top: 0.75rem;
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    border-radius: 8px;
+    padding: 0.6rem 1.4rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 0.92rem;
+    transition: background 0.15s;
+  }
+  .verify-btn:hover { background: var(--accent-bright); }
+  .verify-btn:disabled { opacity: 0.6; cursor: wait; }
+
+  .verify-not-supported {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem;
+    font-size: 0.92rem;
+    line-height: 1.55;
+    color: var(--text-dim);
+  }
+
+  .verify-not-supported code {
+    font-family: var(--font-mono);
+    background: var(--bg-elev-2);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    color: var(--accent-bright);
+    font-size: 0.9em;
+  }
+
+  .verify-result {
+    margin-top: 1rem;
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+    padding: 0.85rem 1rem;
+    border-radius: 8px;
+    font-size: 0.92rem;
+    line-height: 1.55;
+  }
+
+  .verify-result .verify-icon {
+    font-size: 1.2rem;
+    font-weight: 700;
+    flex-shrink: 0;
+    line-height: 1;
+    padding-top: 0.1rem;
+  }
+
+  .verify-valid {
+    background: rgba(16, 185, 129, 0.1);
+    border-left: 3px solid var(--success);
+    color: var(--text);
+  }
+  .verify-valid .verify-icon { color: var(--success); }
+
+  .verify-invalid {
+    background: rgba(239, 68, 68, 0.1);
+    border-left: 3px solid var(--danger);
+    color: var(--text);
+  }
+  .verify-invalid .verify-icon { color: var(--danger); }
+
+  .verify-error {
+    background: rgba(245, 158, 11, 0.1);
+    border-left: 3px solid var(--warning);
+    color: var(--text);
+  }
+  .verify-error .verify-icon { color: var(--warning); }
+
+  .verify-result strong { color: var(--text); }
 </style>
