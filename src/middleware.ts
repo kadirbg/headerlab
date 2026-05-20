@@ -16,15 +16,37 @@ const CSP = [
   "object-src 'none'"
 ].join('; ');
 
+// Comprehensive Permissions-Policy: disable every browser feature we don't use.
+// Only exception: clipboard-write=(self) — Copy buttons rely on navigator.clipboard.writeText.
+// Alphabetical order for ease of maintenance and review.
 const PERMISSIONS_POLICY = [
-  'camera=()',
-  'microphone=()',
-  'geolocation=()',
-  'payment=()',
-  'usb=()',
   'accelerometer=()',
+  'autoplay=()',
+  'browsing-topics=()',
+  'camera=()',
+  'clipboard-read=()',
+  'clipboard-write=(self)',
+  'display-capture=()',
+  'encrypted-media=()',
+  'fullscreen=()',
+  'gamepad=()',
+  'geolocation=()',
   'gyroscope=()',
-  'magnetometer=()'
+  'hid=()',
+  'idle-detection=()',
+  'interest-cohort=()',
+  'magnetometer=()',
+  'microphone=()',
+  'midi=()',
+  'payment=()',
+  'picture-in-picture=()',
+  'publickey-credentials-get=()',
+  'screen-wake-lock=()',
+  'serial=()',
+  'sync-xhr=()',
+  'usb=()',
+  'web-share=()',
+  'xr-spatial-tracking=()'
 ].join(', ');
 
 export const onRequest = defineMiddleware(async (context, next) => {

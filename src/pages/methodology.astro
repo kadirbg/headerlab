@@ -27,19 +27,20 @@ const description = "How HeaderLab grades HTTP security headers: scoring philoso
     <section>
       <h2>The scoring model</h2>
 
-      <p>Every scan starts at zero and earns its way up to 100. Each of the six headers we evaluate has a maximum weight, and that weight is divided between presence and configuration quality.</p>
+      <p>Every scan starts at zero and earns up to a raw total, which is then normalized to a 0–100 final score. Each of the six headers we evaluate carries a weight based on its severity tier.</p>
 
-      <!-- TODO: Verify these weights against src/lib/headers.ts before launch -->
-      <p>Points are distributed across headers as follows:</p>
+      <p>Headers are weighted as follows:</p>
 
       <ul>
-        <li><strong>Content-Security-Policy</strong> — 25</li>
-        <li><strong>Strict-Transport-Security</strong> — 20</li>
-        <li><strong>X-Frame-Options / frame-ancestors</strong> — 20</li>
-        <li><strong>Referrer-Policy</strong> — 15</li>
-        <li><strong>X-Content-Type-Options</strong> — 10</li>
-        <li><strong>Permissions-Policy</strong> — 10</li>
+        <li><strong>Content-Security-Policy</strong> — critical (raw weight 28)</li>
+        <li><strong>Strict-Transport-Security</strong> — critical (raw weight 28)</li>
+        <li><strong>X-Frame-Options / frame-ancestors</strong> — high (raw weight 20)</li>
+        <li><strong>Referrer-Policy</strong> — medium (raw weight 12)</li>
+        <li><strong>X-Content-Type-Options</strong> — medium (raw weight 12)</li>
+        <li><strong>Permissions-Policy</strong> — medium (raw weight 12)</li>
       </ul>
+
+      <p>Total raw weight across all headers is 112; your earned points are scaled to a 0–100 score for the final grade. We display raw weights here rather than rounded percentages because the underlying scoring logic uses raw weights directly, and we'd rather show what the analyzer actually does than a tidier number that doesn't match.</p>
 
       <p>Within each header, presence earns a baseline portion of the weight. The rest is unlocked by configuration quality: a long HSTS <code>max-age</code> with <code>preload</code> earns more than a short max-age without it; a CSP using nonces and <code>strict-dynamic</code> earns more than one relying on broad allowlists.</p>
 
@@ -52,7 +53,7 @@ const description = "How HeaderLab grades HTTP security headers: scoring philoso
       <p>For each header we evaluate, this section explains what's checked, where things commonly go wrong, and what's actually being prevented when the header is set well.</p>
 
       <article>
-        <h3>Content-Security-Policy — 25 points</h3>
+        <h3>Content-Security-Policy — Critical severity</h3>
 
         <p><strong>What we check.</strong> The presence of a policy, then the strength of its directives — particularly <code>script-src</code>, <code>object-src</code>, <code>base-uri</code>, and <code>frame-ancestors</code>. We reward modern patterns (nonces, <code>'strict-dynamic'</code>, hashes) and penalize broad allowlists, wildcards, and unsafe keywords. The full set of weakness checks runs through our CSP Evaluator and is summarized in the result.</p>
 
@@ -62,7 +63,7 @@ const description = "How HeaderLab grades HTTP security headers: scoring philoso
       </article>
 
       <article>
-        <h3>Strict-Transport-Security — 20 points</h3>
+        <h3>Strict-Transport-Security — Critical severity</h3>
 
         <p><strong>What we check.</strong> The presence of <code>max-age</code>, its duration, whether <code>includeSubDomains</code> is set, and whether <code>preload</code> is declared. Longer durations and broader scopes earn more credit.</p>
 
@@ -72,7 +73,7 @@ const description = "How HeaderLab grades HTTP security headers: scoring philoso
       </article>
 
       <article>
-        <h3>X-Frame-Options / frame-ancestors — 20 points</h3>
+        <h3>X-Frame-Options / frame-ancestors — High severity</h3>
 
         <p><strong>What we check.</strong> Either <code>X-Frame-Options</code> or the CSP <code>frame-ancestors</code> directive. We treat <code>frame-ancestors</code> as the modern equivalent and score them together rather than penalizing sites that chose one over the other. The strongest values are <code>DENY</code> / <code>'none'</code> and <code>SAMEORIGIN</code> / <code>'self'</code>.</p>
 
@@ -82,7 +83,7 @@ const description = "How HeaderLab grades HTTP security headers: scoring philoso
       </article>
 
       <article>
-        <h3>Referrer-Policy — 15 points</h3>
+        <h3>Referrer-Policy — Medium severity</h3>
 
         <p><strong>What we check.</strong> The presence of the header and the strength of its value. <code>strict-origin-when-cross-origin</code> earns near-full credit; <code>no-referrer</code> earns full credit for sites that don't need cross-origin referrer data. Comma-separated fallback values are accepted per the spec.</p>
 
@@ -92,7 +93,7 @@ const description = "How HeaderLab grades HTTP security headers: scoring philoso
       </article>
 
       <article>
-        <h3>X-Content-Type-Options — 10 points</h3>
+        <h3>X-Content-Type-Options — Medium severity</h3>
 
         <p><strong>What we check.</strong> The presence of the header with the value <code>nosniff</code>. This is a simple binary check — the header has one valid value.</p>
 
@@ -102,15 +103,13 @@ const description = "How HeaderLab grades HTTP security headers: scoring philoso
       </article>
 
       <article>
-        <h3>Permissions-Policy — 10 points</h3>
+        <h3>Permissions-Policy — Medium severity</h3>
 
-        <p><strong>What we check.</strong> The presence of the header and the restrictiveness of its feature allowlists. We give more credit to policies that explicitly deny powerful features the site doesn't use — camera, microphone, geolocation, payment, USB, and similar — than to permissive or empty policies.</p>
+        <p><strong>What we check.</strong> The presence of a Permissions-Policy header. Our current check is pass/fail on presence; the recommendation we surface in your result encourages comprehensive directive coverage — denying camera, microphone, geolocation, payment, USB, sensors, and similar features your site doesn't use.</p>
 
-        <p><strong>Common pitfalls.</strong> Omitting the header entirely is by far the most common. An empty <code>Permissions-Policy:</code> header is a no-op, and a legacy <code>Feature-Policy</code> header without a modern equivalent leaves the same gap.</p>
+        <p><strong>Common pitfalls.</strong> Omitting the header entirely is by far the most common. An empty <code>Permissions-Policy:</code> header is a no-op, and a legacy <code>Feature-Policy</code> header without a modern equivalent leaves the same gap. Setting only a handful of directives leaves the rest at default-allow, which is the wrong direction for defense-in-depth.</p>
 
-        <p><strong>Why this matters.</strong> A compromised third-party script — an ad, an analytics SDK, a tampered CDN library — runs in your origin and inherits its capabilities. <code>Permissions-Policy</code> lets you draw a hard line: this page doesn't need the camera, the microphone, the user's location, or the payment API, and the browser will refuse those calls even if the page asks.</p>
-
-        <p class="note"><strong>A note on weighting.</strong> Permissions-Policy is currently weighted lower than other headers because browser support and best-practice consensus are still maturing. We plan to raise its weight in a future revision as the directive set stabilizes and adoption grows.</p>
+        <p><strong>Why this matters.</strong> A compromised third-party script — an ad, an analytics SDK, a tampered CDN library — runs in your origin and inherits its capabilities. <code>Permissions-Policy</code> lets you draw a hard line: this page doesn't need the camera, the microphone, the user's location, or the payment API, and the browser will refuse those calls even if the page asks. As third-party supply-chain compromises have become more common, this kind of browser-enforced ceiling on what code can do has shifted from nice-to-have to a meaningful layer of defense.</p>
       </article>
     </section>
 
@@ -166,7 +165,7 @@ const description = "How HeaderLab grades HTTP security headers: scoring philoso
 
       <p><strong>We're stricter on CSP weaknesses.</strong> Our evaluator runs more than fifteen checks against the policy itself, and findings ranked critical or high will cap the CSP contribution well below its maximum even when the rest of the headers are pristine. On scanners that don't analyze CSP content, the same policy can earn full CSP credit.</p>
 
-      <p><strong>We weight Permissions-Policy.</strong> Some scanners treat Permissions-Policy as optional or bonus credit. We include it in the base score — currently at a lower weight, with plans to increase it as best practice solidifies — because we think the directive matters more as third-party script supply chains grow.</p>
+      <p><strong>We weight Permissions-Policy as medium severity.</strong> Some scanners treat Permissions-Policy as optional or bonus credit. We include it in the base score at medium severity — on par with X-Content-Type-Options and Referrer-Policy — because the directive matters more as third-party script supply chains grow and browser support has matured. A site that explicitly disables camera, microphone, geolocation, payment, USB, and sensor APIs is meaningfully harder to abuse via a compromised third-party script than one that leaves all features at default-allow.</p>
 
       <p><strong>We treat XFO and frame-ancestors as equivalent.</strong> Sites that have moved their framing policy into CSP shouldn't be penalized for dropping the legacy <code>X-Frame-Options</code> header. Some scanners still check for both independently.</p>
 
