@@ -330,6 +330,7 @@ import Layout from '../../components/Layout.astro';
             </div>
           </div>
         </div>
+      </div>
     `;
   }
 
@@ -464,8 +465,7 @@ import Layout from '../../components/Layout.astro';
 
     // Copy snippet (inside fix-snippets)
     if (target.classList.contains('copy-btn')) {
-      const panel = target.closest('.tab-panel');
-      const code = panel?.querySelector('code')?.textContent;
+      const code = target.closest('.snippet-code')?.querySelector('code')?.textContent;
       if (!code) return;
       try {
         await navigator.clipboard.writeText(code);
