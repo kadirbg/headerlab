@@ -1,6 +1,6 @@
 # HeaderLab
 
-Modern web security toolkit — free, fast, privacy-first tools for developers and security engineers.
+Modern web security toolkit — free, fast, privacy-first tools for developers and the security community.
 
 **Live:** [headerlab.dev](https://headerlab.dev)
 
