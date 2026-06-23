@@ -1,11 +1,14 @@
 import type { APIRoute } from 'astro';
+import { env } from 'cloudflare:workers';
 import { analyzeHeaders } from '../../lib/headers';
 import { isBlockedHost } from '../../lib/ssrf-guard';
 import { checkRateLimit } from '../../lib/rate-limit';
 
+export const prerender = false;
+
 const MAX_REDIRECTS = 5;
 
-export const POST: APIRoute = async ({ request, locals }) => {
+export const POST: APIRoute = async ({ request }) => {
   const json = (data: unknown, status = 200) =>
     new Response(JSON.stringify(data), {
       status,
@@ -16,7 +19,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
   const clientIp = request.headers.get('CF-Connecting-IP')
     ?? request.headers.get('x-forwarded-for')
     ?? 'unknown';
-  const rl = await checkRateLimit((locals as any)?.runtime?.env, clientIp);
+  const rl = await checkRateLimit(env as unknown as Record<string, unknown>, clientIp);
   if (!rl.allowed) {
     return json({ error: 'Too many requests. Please slow down.' }, 429);
   }

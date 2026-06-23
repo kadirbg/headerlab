@@ -8,11 +8,15 @@
 //
 // IMPORTANT — deployment requirement:
 // This expects a KV namespace bound as `RATE_LIMIT_KV` in the Cloudflare
-// project settings (Workers & Pages → Settings → Functions → KV namespace
-// bindings, or wrangler.toml if you add one later). Until that binding
-// exists, this fails OPEN (allows the request) rather than breaking the
-// endpoint — see the comment below. Add the binding before relying on this
-// for abuse protection in production.
+// project's Settings → Bindings (Cloudflare dashboard) — add a "KV namespace"
+// binding with variable name RATE_LIMIT_KV pointing at a namespace you create
+// under Storage & Databases → KV. The caller (src/pages/api/check.ts) reads
+// it via `import { env } from "cloudflare:workers"` — this is the Astro 6 /
+// @astrojs/cloudflare 13.x way of reaching bindings. The older
+// `Astro.locals.runtime.env` API was removed in Astro 6 and will throw
+// `Cannot read properties of undefined (reading 'env')` if used. Until the
+// RATE_LIMIT_KV binding exists, this fails OPEN (allows the request) rather
+// than breaking the endpoint — see the comment below.
 
 const WINDOW_SECONDS = 60;
 const MAX_REQUESTS_PER_WINDOW = 10;
