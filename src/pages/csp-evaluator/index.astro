@@ -72,7 +72,7 @@ import Layout from '../../components/Layout.astro';
     if (summary.medium) counts.push(`<span class="count medium">${summary.medium} medium</span>`);
     if (summary.low) counts.push(`<span class="count low">${summary.low} low</span>`);
     if (summary.info) counts.push(`<span class="count info">${summary.info} info</span>`);
-    if (counts.length === 0) counts.push('<span class="count pass">No issues — looks solid ✓</span>');
+    if (counts.length === 0) counts.push('<span class="count pass">No issues, looks solid ✓</span>');
 
     const gradeClass = grade.replace('+', '-plus');
 
@@ -115,7 +115,7 @@ import Layout from '../../components/Layout.astro';
       }
       findingsHtml += '</div>';
     } else {
-      findingsHtml = '<div class="no-findings">No findings — this CSP looks solid. ✓</div>';
+      findingsHtml = '<div class="no-findings">No findings. This CSP looks solid. ✓</div>';
     }
 
     results.innerHTML = summaryHtml + parsedHtml + findingsHtml;

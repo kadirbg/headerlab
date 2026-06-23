@@ -28,7 +28,7 @@ import Layout from '../../components/Layout.astro';
   <section class="csp-options">
     <label>
       <input type="checkbox" id="report-only" />
-      <span>Report-only mode (test without blocking — uses <code>Content-Security-Policy-Report-Only</code> header)</span>
+      <span>Report-only mode (test without blocking, uses <code>Content-Security-Policy-Report-Only</code> header)</span>
     </label>
   </section>
 
@@ -51,7 +51,7 @@ import Layout from '../../components/Layout.astro';
     <div class="tab-panels">
       <div id="csp-nginx" class="tab-panel active">
         <div class="snippet-location">
-          <strong>Where:</strong> Add inside your <code>server</code> block — e.g. <code>/etc/nginx/sites-available/yoursite</code>. Reload: <code>sudo nginx -s reload</code>
+          <strong>Where:</strong> Add inside your <code>server</code> block, for example <code>/etc/nginx/sites-available/yoursite</code>. Reload: <code>sudo nginx -s reload</code>
         </div>
         <div class="snippet-code">
           <button class="copy-btn" type="button">Copy</button>
@@ -91,7 +91,7 @@ import Layout from '../../components/Layout.astro';
     <h3>What is Content Security Policy?</h3>
     <p>
       Content Security Policy (CSP) is an HTTP response header that tells the browser
-      which sources of content — scripts, styles, images, fonts, iframes, and more —
+      which sources of content (scripts, styles, images, fonts, iframes, and more)
       are allowed to load on a page. When properly configured, it dramatically reduces
       the impact of cross-site scripting (XSS), one of the most common and damaging
       web vulnerabilities.
@@ -111,8 +111,8 @@ import Layout from '../../components/Layout.astro';
     <h3>Why CSP is hard to deploy</h3>
     <p>
       CSP is powerful, but it's notoriously tricky to roll out without breaking your
-      site. Most pages depend on dozens of third-party resources — analytics, fonts,
-      error tracking, embedded videos, payment widgets — and missing any single one
+      site. Most pages depend on dozens of third-party resources (analytics, fonts,
+      error tracking, embedded videos, payment widgets), and missing any single one
       in your policy will silently break it. There are two practical strategies:
     </p>
     <p>
@@ -135,7 +135,7 @@ import Layout from '../../components/Layout.astro';
 
     <h3>Directive-by-directive guide</h3>
     <p>
-      CSP is made up of <em>directives</em> — individual rules for different resource
+      CSP is made up of <em>directives</em>, individual rules for different resource
       types. Here are the most important ones:
     </p>
 
@@ -150,7 +150,7 @@ import Layout from '../../components/Layout.astro';
     <p>
       <strong><code>script-src</code></strong> controls where JavaScript can come from.
       This is the most security-critical directive. Avoid <code>'unsafe-inline'</code>
-      and <code>'unsafe-eval'</code> — they essentially turn off CSP's XSS protection.
+      and <code>'unsafe-eval'</code>. They essentially turn off CSP's XSS protection.
       If you need inline scripts, use nonces (<code>'nonce-abc123'</code>) or hashes
       (<code>'sha256-...'</code>).
     </p>
@@ -159,7 +159,7 @@ import Layout from '../../components/Layout.astro';
       <strong><code>style-src</code></strong> controls stylesheets. Many modern
       frameworks (Tailwind, CSS-in-JS libraries) inject inline styles, so
       <code>'unsafe-inline'</code> here is extremely common and significantly less
-      dangerous than in <code>script-src</code> — attackers can't execute code through
+      dangerous than in <code>script-src</code>. Attackers can't execute code through
       CSS, only modify appearance.
     </p>
 
@@ -176,7 +176,7 @@ import Layout from '../../components/Layout.astro';
 
     <p>
       <strong><code>connect-src</code></strong> controls where your page can make
-      network requests — <code>fetch()</code>, <code>XMLHttpRequest</code>, WebSocket,
+      network requests: <code>fetch()</code>, <code>XMLHttpRequest</code>, WebSocket,
       EventSource. If your app talks to APIs, this is where you list those origins.
     </p>
 
@@ -214,15 +214,15 @@ import Layout from '../../components/Layout.astro';
     <h3>Common source keywords</h3>
     <p>CSP source values can be exact URLs, wildcards, or special keywords:</p>
     <ul>
-      <li><code>'self'</code> — same-origin (matches your protocol, host, and port)</li>
-      <li><code>'none'</code> — no sources allowed</li>
-      <li><code>'unsafe-inline'</code> — allows inline <code>&lt;script&gt;</code> and <code>&lt;style&gt;</code> blocks. <strong>Avoid in <code>script-src</code>.</strong></li>
-      <li><code>'unsafe-eval'</code> — allows <code>eval()</code>, <code>new Function()</code>, and similar. <strong>Avoid universally.</strong></li>
-      <li><code>'strict-dynamic'</code> — modern CSP3 mode that trusts scripts loaded by other trusted scripts</li>
-      <li><code>data:</code> — allows <code>data:</code> URIs (inline images, fonts)</li>
-      <li><code>blob:</code> — allows blob URLs (for dynamically generated content)</li>
-      <li><code>https:</code> — allows any HTTPS source (broad — use sparingly)</li>
-      <li><code>*</code> — wildcard. <strong>Essentially disables CSP.</strong></li>
+      <li><code>'self'</code>: same-origin (matches your protocol, host, and port)</li>
+      <li><code>'none'</code>: no sources allowed</li>
+      <li><code>'unsafe-inline'</code>: allows inline <code>&lt;script&gt;</code> and <code>&lt;style&gt;</code> blocks. <strong>Avoid in <code>script-src</code>.</strong></li>
+      <li><code>'unsafe-eval'</code>: allows <code>eval()</code>, <code>new Function()</code>, and similar. <strong>Avoid universally.</strong></li>
+      <li><code>'strict-dynamic'</code>: modern CSP3 mode that trusts scripts loaded by other trusted scripts</li>
+      <li><code>data:</code>: allows <code>data:</code> URIs (inline images, fonts)</li>
+      <li><code>blob:</code>: allows blob URLs (for dynamically generated content)</li>
+      <li><code>https:</code>: allows any HTTPS source (broad, use sparingly)</li>
+      <li><code>*</code>: wildcard. <strong>Essentially disables CSP.</strong></li>
     </ul>
     <p>
       You can also use scheme-host wildcards like <code>https://*.example.com</code>
@@ -275,11 +275,11 @@ import Layout from '../../components/Layout.astro';
 
     <h3>Further reading</h3>
     <ul>
-      <li><a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Security-Policy" target="_blank" rel="noopener">MDN — Content Security Policy</a></li>
-      <li><a href="https://cheatsheetseries.owasp.org/cheatsheets/Content_Security_Policy_Cheat_Sheet.html" target="_blank" rel="noopener">OWASP — CSP Cheat Sheet</a></li>
-      <li><a href="https://csp-evaluator.withgoogle.com/" target="_blank" rel="noopener">Google — CSP Evaluator</a></li>
-      <li><a href="https://web.dev/articles/strict-csp" target="_blank" rel="noopener">web.dev — Strict CSP guide</a></li>
-      <li><a href="https://observatory.mozilla.org/" target="_blank" rel="noopener">Mozilla Observatory — full security audit</a></li>
+      <li><a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Security-Policy" target="_blank" rel="noopener">MDN: Content Security Policy</a></li>
+      <li><a href="https://cheatsheetseries.owasp.org/cheatsheets/Content_Security_Policy_Cheat_Sheet.html" target="_blank" rel="noopener">OWASP: CSP Cheat Sheet</a></li>
+      <li><a href="https://csp-evaluator.withgoogle.com/" target="_blank" rel="noopener">Google: CSP Evaluator</a></li>
+      <li><a href="https://web.dev/articles/strict-csp" target="_blank" rel="noopener">web.dev: Strict CSP guide</a></li>
+      <li><a href="https://observatory.mozilla.org/" target="_blank" rel="noopener">Mozilla Observatory: full security audit</a></li>
     </ul>
   </section>
 
@@ -352,9 +352,9 @@ import Layout from '../../components/Layout.astro';
   const QUICK_SOURCES = ["'self'", "'none'", "'unsafe-inline'", "'unsafe-eval'", "https:", "data:", "blob:", "*"];
 
   const RISKY: Record<string, string> = {
-    "'unsafe-inline'": "Allows inline scripts/styles — defeats most XSS protection.",
-    "'unsafe-eval'": "Allows eval() and similar — undermines CSP's main XSS protection.",
-    "*": "Wildcard — allows any source. Essentially turns CSP off.",
+    "'unsafe-inline'": "Allows inline scripts/styles. Defeats most XSS protection.",
+    "'unsafe-eval'": "Allows eval() and similar. Undermines CSP's main XSS protection.",
+    "*": "Wildcard. Allows any source. Essentially turns CSP off.",
     "https:": "Allows any HTTPS source. Very permissive.",
     "data:": "Allows data: URIs. Risky for script-src and style-src."
   };
@@ -413,7 +413,7 @@ import Layout from '../../components/Layout.astro';
     const sourcesHtml = enabled ? `
       <div class="sources-list">
         ${sources.length === 0
-          ? `<span class="no-sources">No sources yet — add one below.</span>`
+          ? `<span class="no-sources">No sources yet. Add one below.</span>`
           : sources.map(s => `
             <span class="source-chip ${RISKY[s] ? 'risky' : ''}" title="${RISKY[s] ? escapeHtml(RISKY[s]) : ''}">
               ${escapeHtml(s)}
@@ -430,7 +430,7 @@ import Layout from '../../components/Layout.astro';
         <input type="text" placeholder="https://example.com or https://*.example.com" data-custom-input />
         <button type="button" data-custom-add>Add</button>
       </div>
-    ` : `<p class="disabled-note">Disabled — this directive is not included in the policy.</p>`;
+    ` : `<p class="disabled-note">Disabled. This directive is not included in the policy.</p>`;
 
     return `
       <article class="directive-card ${enabled ? '' : 'disabled'}" data-directive="${d.id}">

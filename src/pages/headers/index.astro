@@ -41,7 +41,7 @@ import Layout from '../../components/Layout.astro';
     <h2>What Are HTTP Security Headers?</h2>
     <p>
       HTTP security headers are response headers your web server sends along with every page.
-      They tell the browser how to behave — what content to trust, what to block, when to
+      They tell the browser how to behave: what content to trust, what to block, when to
       enforce HTTPS, and whether the page can be embedded by other sites. Used correctly,
       they form a critical layer of defense against the most common web attacks: cross-site
       scripting (XSS), clickjacking, MIME-sniffing exploits, downgrade attacks, and
@@ -50,7 +50,7 @@ import Layout from '../../components/Layout.astro';
     <p>
       The catch: these headers are <strong>opt-in</strong>. Without explicit configuration,
       modern browsers default to permissive behavior for backward compatibility. A site with
-      no security headers is functionally equivalent to a site from 2005 — it works, but it
+      no security headers is functionally equivalent to a site from 2005. It works, but it
       leaves doors open that attackers know exactly how to push through.
     </p>
 
@@ -58,7 +58,7 @@ import Layout from '../../components/Layout.astro';
     <p>Three reasons, in order of importance:</p>
     <ol>
       <li>
-        <strong>Real attacks.</strong> XSS and clickjacking are not theoretical — they're
+        <strong>Real attacks.</strong> XSS and clickjacking are not theoretical. They're
         consistently in the OWASP Top 10. A properly configured Content-Security-Policy alone
         would have blocked the majority of XSS exploits in the last decade.
       </li>
@@ -91,7 +91,7 @@ import Layout from '../../components/Layout.astro';
     <p>
       The most powerful header on this list. CSP tells the browser exactly which sources of
       scripts, styles, images, fonts, and other resources are allowed to load. A strict CSP
-      makes XSS attacks effectively impossible — even if an attacker injects malicious
+      makes XSS attacks effectively impossible. Even if an attacker injects malicious
       JavaScript into your HTML, the browser refuses to execute it because the source isn't
       whitelisted. The tradeoff: CSP is the hardest header to deploy because it must
       accommodate every legitimate resource your site loads. Start with
@@ -111,7 +111,7 @@ import Layout from '../../components/Layout.astro';
     <h3>X-Content-Type-Options</h3>
     <p>
       A small but important header that blocks MIME-type sniffing. Without it, browsers may
-      treat a file's contents differently from its declared <code>Content-Type</code> — for
+      treat a file's contents differently from its declared <code>Content-Type</code>. For
       example, executing a <code>.txt</code> file as JavaScript if the contents look like
       code. Setting this to <code>nosniff</code> removes that ambiguity. There's no good
       reason not to enable it.
@@ -120,8 +120,8 @@ import Layout from '../../components/Layout.astro';
     <h3>Referrer-Policy</h3>
     <p>
       Controls what URL information the browser sends in the <code>Referer</code> header when
-      users navigate away from your site. The default leaks your full URL — including query
-      strings that might contain session tokens, search terms, or other sensitive context —
+      users navigate away from your site. The default leaks your full URL (including query
+      strings that might contain session tokens, search terms, or other sensitive context)
       to every external link target. Use <code>strict-origin-when-cross-origin</code>
       (modern browser default) or <code>no-referrer</code> for maximum privacy.
     </p>
@@ -129,7 +129,7 @@ import Layout from '../../components/Layout.astro';
     <h3>Permissions-Policy</h3>
     <p>
       Restricts which powerful browser APIs your site (and any third parties loaded by it)
-      can use. Camera, microphone, geolocation, payment, USB, accelerometer — all features
+      can use. Camera, microphone, geolocation, payment, USB, accelerometer: all features
       that should be off by default for sites that don't need them. Setting
       <code>camera=(), microphone=(), geolocation=()</code> blocks both your own code and any
       embedded scripts from prompting users for these permissions.
@@ -141,8 +141,8 @@ import Layout from '../../components/Layout.astro';
     <p>
       At minimum: HSTS, X-Content-Type-Options, X-Frame-Options (or CSP frame-ancestors), and
       Referrer-Policy. These cost nothing and break nothing. CSP and Permissions-Policy
-      require more thought because they can block legitimate functionality if misconfigured
-      — deploy them in report-only mode first.
+      require more thought because they can block legitimate functionality if misconfigured.
+      Deploy them in report-only mode first.
     </p>
 
     <h3>Will adding these headers break my site?</h3>
@@ -167,7 +167,7 @@ import Layout from '../../components/Layout.astro';
     <h3>Why does HSTS require HTTPS?</h3>
     <p>
       HSTS only takes effect over a secure connection. Sending the header over plain HTTP is
-      meaningless — an attacker could strip it. The browser ignores HSTS on HTTP responses
+      meaningless, since an attacker could strip it. The browser ignores HSTS on HTTP responses
       by design. Once a user visits your HTTPS site, the header registers and HTTPS is
       enforced from then on.
     </p>
@@ -175,7 +175,7 @@ import Layout from '../../components/Layout.astro';
     <h3>How often should I re-scan my site?</h3>
     <p>
       After any deployment that touches your CDN, third-party scripts, or analytics setup.
-      Also after migrating hosting — Nginx config gets lost on server moves more often than
+      Also after migrating hosting. Nginx config gets lost on server moves more often than
       you'd expect. Some teams add a security headers scan to their CI pipeline; we'll
       publish API docs for that workflow in a future release.
     </p>
@@ -193,22 +193,22 @@ import Layout from '../../components/Layout.astro';
       <li>
         <a href="https://owasp.org/www-project-secure-headers/" target="_blank" rel="noopener">
           OWASP Secure Headers Project
-        </a> — the canonical reference, updated regularly.
+        </a>. The canonical reference, updated regularly.
       </li>
       <li>
         <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers" target="_blank" rel="noopener">
           MDN Web Docs: HTTP Headers
-        </a> — exhaustive spec for every standard header.
+        </a>. Exhaustive spec for every standard header.
       </li>
       <li>
         <a href="https://observatory.mozilla.org/" target="_blank" rel="noopener">
           Mozilla Observatory
-        </a> — Mozilla's own scanner with a different scoring methodology.
+        </a>. Mozilla's own scanner with a different scoring methodology.
       </li>
       <li>
         <a href="https://hstspreload.org/" target="_blank" rel="noopener">
           HSTS Preload List
-        </a> — submit your domain to be hardcoded into browsers as HTTPS-only.
+        </a>. Submit your domain to be hardcoded into browsers as HTTPS-only.
       </li>
     </ul>
   </section>
@@ -222,7 +222,7 @@ import Layout from '../../components/Layout.astro';
         "name": "Do I need to set all six HTTP security headers?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "At minimum: HSTS, X-Content-Type-Options, X-Frame-Options, and Referrer-Policy. These cost nothing and break nothing. CSP and Permissions-Policy require more thought because they can block legitimate functionality if misconfigured — deploy them in report-only mode first."
+          "text": "At minimum: HSTS, X-Content-Type-Options, X-Frame-Options, and Referrer-Policy. These cost nothing and break nothing. CSP and Permissions-Policy require more thought because they can block legitimate functionality if misconfigured. Deploy them in report-only mode first."
         }
       },
       {
@@ -291,9 +291,9 @@ import Layout from '../../components/Layout.astro';
   }
 
   const LOCATIONS = {
-    nginx: `<strong>Where:</strong> Add inside your <code>server</code> block — e.g. <code>/etc/nginx/sites-available/yoursite</code> or <code>/etc/nginx/nginx.conf</code>. Reload after: <code>sudo nginx -s reload</code>`,
+    nginx: `<strong>Where:</strong> Add inside your <code>server</code> block. For example, <code>/etc/nginx/sites-available/yoursite</code> or <code>/etc/nginx/nginx.conf</code>. Reload after: <code>sudo nginx -s reload</code>`,
     apache: `<strong>Where:</strong> Add to <code>.htaccess</code> in your site root, or to your <code>VirtualHost</code> config. Requires <code>mod_headers</code>: <code>sudo a2enmod headers && sudo systemctl reload apache2</code>`,
-    cloudflare: `<strong>Where:</strong> No file needed — apply via Cloudflare Dashboard. See the snippet comments for exact navigation path.`
+    cloudflare: `<strong>Where:</strong> No file needed. Apply via Cloudflare Dashboard. See the snippet comments for exact navigation path.`
   };
 
   function renderSnippets(check: HeaderCheck) {

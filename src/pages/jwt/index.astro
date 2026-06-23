@@ -5,14 +5,14 @@ import Layout from '../../components/Layout.astro';
 
 <Layout
   title="JWT Decoder & Security Analyzer — HeaderLab"
-  description="Decode any JSON Web Token and analyze it for security weaknesses. Detects alg=none, missing expiry, excessive lifetime, and sensitive data in the payload. 100% client-side — your token never leaves your browser."
+  description="Decode any JSON Web Token and analyze it for security weaknesses. Detects alg=none, missing expiry, excessive lifetime, and sensitive data in the payload. 100% client-side: your token never leaves your browser."
 >
   <section class="tool-header">
     <a href="/" class="back-link">← All tools</a>
     <h1>JWT Decoder &amp; Security Analyzer</h1>
     <p class="lead">
       Decode any JSON Web Token, inspect its claims, and audit it against
-      common security pitfalls — algorithm weaknesses, missing expiry,
+      common security pitfalls: algorithm weaknesses, missing expiry,
       excessive lifetime, sensitive data in the payload. Everything runs in
       your browser; the token is never sent over the network.
     </p>
@@ -38,8 +38,8 @@ import Layout from '../../components/Layout.astro';
       </div>
     </div>
     <p class="form-hint">
-      <strong>100% client-side.</strong> Your token never leaves this page —
-      decoding and analysis happen entirely in your browser.
+      <strong>100% client-side.</strong> Your token never leaves this page.
+      Decoding and analysis happen entirely in your browser.
     </p>
   </section>
 
@@ -74,7 +74,7 @@ import Layout from '../../components/Layout.astro';
       Treat the payload as public-by-design. Never put passwords, API keys,
       personal financial data, or anything else you wouldn't print on a
       postcard. If you genuinely need to transport secrets in a token, use
-      <strong>JWE</strong> (JSON Web Encryption) — the encrypted counterpart
+      <strong>JWE</strong> (JSON Web Encryption), the encrypted counterpart
       defined in RFC 7516.
     </p>
 
@@ -84,7 +84,7 @@ import Layout from '../../components/Layout.astro';
     <p>
       The <code>alg</code> field in the JWT header decides how the signature
       is verified. A misconfigured server that accepts <code>alg: none</code>
-      will trust any token, even one constructed by an attacker — the
+      will trust any token, even one constructed by an attacker. This is the
       single most well-known JWT vulnerability. Symmetric algorithms
       (<code>HS256</code>, <code>HS384</code>, <code>HS512</code>) are also
       worth flagging, because servers that accept multiple algorithm types
@@ -116,9 +116,9 @@ import Layout from '../../components/Layout.astro';
 
     <h3>Standard claims breakdown</h3>
     <p>
-      The seven registered claims defined in RFC 7519 — <code>iss</code>,
+      The seven registered claims defined in RFC 7519 (<code>iss</code>,
       <code>sub</code>, <code>aud</code>, <code>exp</code>, <code>nbf</code>,
-      <code>iat</code>, <code>jti</code> — get their own panel with
+      <code>iat</code>, <code>jti</code>) get their own panel with
       human-readable times and explanations. Custom claims appear in the raw
       payload above.
     </p>
@@ -129,7 +129,7 @@ import Layout from '../../components/Layout.astro';
     <p>
       Yes. Decoding and analysis happen entirely client-side; the token
       never crosses the network. You can verify this by opening your browser's
-      DevTools Network tab while pressing Decode — no requests are made.
+      DevTools Network tab while pressing Decode. No requests are made.
       The analysis engine is open source at
       <code>src/lib/jwt-decoder.ts</code> in the
       <a href="https://github.com/kadirbg/headerlab" target="_blank" rel="noopener">repository</a>
@@ -141,7 +141,7 @@ import Layout from '../../components/Layout.astro';
       Tokens carry an <code>exp</code> claim with the expiration timestamp.
       If the current time is past that timestamp, the token is expired
       and a correctly configured server will reject it. The token still
-      decodes correctly — expiration is a runtime check, not a structural
+      decodes correctly; expiration is a runtime check, not a structural
       issue.
     </p>
 
@@ -151,7 +151,7 @@ import Layout from '../../components/Layout.astro';
       <code>HS256</code> with a strong shared secret is fine and faster.
       For distributed systems where multiple services verify tokens issued
       by one authority, <code>RS256</code> or <code>ES256</code> is
-      preferable — verifiers only need the public key, so leaking a single
+      preferable. Verifiers only need the public key, so leaking a single
       service's key doesn't compromise the rest of the system. Always
       configure your library to accept exactly one algorithm; never allow
       the token to dictate which.
@@ -160,7 +160,7 @@ import Layout from '../../components/Layout.astro';
     <h3>What's the difference between JWT and a session cookie?</h3>
     <p>
       A session cookie is an opaque identifier that points to server-side
-      state — the server looks up the session in a database on every
+      state. The server looks up the session in a database on every
       request. A JWT carries the claims themselves, signed; the server
       trusts the signature and reads the claims without a lookup. JWTs
       scale better for stateless APIs; sessions are easier to revoke. Many
@@ -170,7 +170,7 @@ import Layout from '../../components/Layout.astro';
 
     <h3>How do I revoke a JWT before it expires?</h3>
     <p>
-      You can't, directly — that's the trade-off for statelessness. The
+      You can't, directly. That's the trade-off for statelessness. The
       common patterns are: keep tokens short-lived (minutes) and rely on
       refresh-token rotation; maintain a server-side denylist of revoked
       <code>jti</code> values; or version the signing key and rotate to
@@ -182,7 +182,7 @@ import Layout from '../../components/Layout.astro';
     <p>
       The JWT spec includes a "none" algorithm meaning the token is
       explicitly unsigned. Some early JWT libraries accepted such tokens
-      by default — meaning an attacker could craft any payload, set the
+      by default, meaning an attacker could craft any payload, set the
       algorithm to <code>none</code>, and have it trusted. Modern
       libraries reject this by default, but the vulnerability still appears
       in misconfigured services. This tool flags it as a critical finding.
@@ -193,22 +193,22 @@ import Layout from '../../components/Layout.astro';
       <li>
         <a href="https://datatracker.ietf.org/doc/html/rfc7519" target="_blank" rel="noopener">
           RFC 7519: JSON Web Token (JWT)
-        </a> — the spec itself.
+        </a>. The spec itself.
       </li>
       <li>
         <a href="https://datatracker.ietf.org/doc/html/rfc7515" target="_blank" rel="noopener">
           RFC 7515: JSON Web Signature (JWS)
-        </a> — the signing format JWT uses.
+        </a>. The signing format JWT uses.
       </li>
       <li>
         <a href="https://owasp.org/www-chapter-vancouver/assets/presentations/2020-01_Attacking_and_Securing_JWT.pdf" target="_blank" rel="noopener">
           OWASP: Attacking and Securing JWT
-        </a> — practical attack patterns and defenses.
+        </a>. Practical attack patterns and defenses.
       </li>
       <li>
         <a href="https://www.rfc-editor.org/rfc/rfc8725" target="_blank" rel="noopener">
           RFC 8725: JWT Best Current Practices
-        </a> — IETF-recommended hardening.
+        </a>. IETF-recommended hardening.
       </li>
     </ul>
   </section>
@@ -222,7 +222,7 @@ import Layout from '../../components/Layout.astro';
         "name": "Is my token safe to paste into a JWT decoder?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Yes, for tools like HeaderLab's JWT Decoder which run entirely client-side. The token never crosses the network. You can verify this by checking your browser's Network tab — no requests are made when decoding. The analysis engine is open source and inspectable."
+          "text": "Yes, for tools like HeaderLab's JWT Decoder which run entirely client-side. The token never crosses the network. You can verify this by checking your browser's Network tab: no requests are made when decoding. The analysis engine is open source and inspectable."
         }
       },
       {
@@ -246,7 +246,7 @@ import Layout from '../../components/Layout.astro';
         "name": "Should I use HS256 or RS256 for JWTs?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "For single-service systems, HS256 with a strong shared secret is fine. For distributed systems where multiple services verify tokens, RS256 or ES256 is preferable — verifiers only need the public key. Always configure your library to accept exactly one algorithm; never let the token dictate which."
+          "text": "For single-service systems, HS256 with a strong shared secret is fine. For distributed systems where multiple services verify tokens, RS256 or ES256 is preferable. Verifiers only need the public key. Always configure your library to accept exactly one algorithm; never let the token dictate which."
         }
       },
       {
@@ -254,7 +254,7 @@ import Layout from '../../components/Layout.astro';
         "name": "How do I revoke a JWT before it expires?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "You cannot revoke a JWT directly — that is the trade-off for statelessness. Common patterns: keep tokens short-lived with refresh-token rotation; maintain a server-side denylist of revoked jti values; or rotate the signing key to invalidate all outstanding tokens at once."
+          "text": "You cannot revoke a JWT directly. That is the trade-off for statelessness. Common patterns: keep tokens short-lived with refresh-token rotation; maintain a server-side denylist of revoked jti values; or rotate the signing key to invalidate all outstanding tokens at once."
         }
       }
     ]
@@ -444,14 +444,14 @@ import Layout from '../../components/Layout.astro';
     if (algLower === 'none') {
       verifyPanelHtml = `
         <div class="verify-not-supported">
-          This token uses <code>alg: none</code> — there is no signature to verify.
+          This token uses <code>alg: none</code>. There is no signature to verify.
           Such tokens are unsigned and should never be accepted in production.
         </div>
       `;
     } else if (!analysis.algorithm) {
       verifyPanelHtml = `
         <div class="verify-not-supported">
-          This token has no <code>alg</code> header — verification is not possible.
+          This token has no <code>alg</code> header. Verification is not possible.
         </div>
       `;
     } else if (!isAlgorithmSupported(analysis.algorithm)) {
