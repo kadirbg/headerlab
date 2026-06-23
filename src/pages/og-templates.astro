@@ -1,0 +1,333 @@
+---
+// OG image templates for HeaderLab.
+// Visit http://localhost:4321/og-templates and screenshot each card at 1200x630.
+// This page is intentionally not linked from anywhere — internal tool only.
+export const prerender = true;
+---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>OG Templates — HeaderLab (internal)</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #1a1a1a;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 40px 20px;
+      color: #fff;
+    }
+
+    h1.page-title {
+      font-size: 1.5rem;
+      margin-bottom: 8px;
+      font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    }
+
+    p.page-help {
+      color: #aaa;
+      margin-bottom: 32px;
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+
+    .og-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 40px;
+      align-items: flex-start;
+    }
+
+    .og-meta {
+      font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      font-size: 0.8rem;
+      color: #888;
+      margin-bottom: 8px;
+    }
+
+    /* ============================================
+       OG CARD — exact 1200x630
+       All colors hardcoded to bypass variable inheritance
+       ============================================ */
+    .og {
+      width: 1200px !important;
+      height: 630px !important;
+      background: #0a0e14 !important;
+      color: #f0f6fc !important;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 0 0 1px #2a3441;
+    }
+
+    /* Subtle grid texture */
+    .og::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(56, 189, 248, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(56, 189, 248, 0.04) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+    }
+
+    /* Top-left logo */
+    .og-logo {
+      position: absolute;
+      top: 48px;
+      left: 60px;
+      font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace !important;
+      font-size: 1.5rem !important;
+      font-weight: 600 !important;
+      letter-spacing: -0.01em;
+      color: #38bdf8 !important;
+      opacity: 1 !important;
+      z-index: 2;
+    }
+
+    /* Bottom-right URL */
+    .og-url {
+      position: absolute;
+      bottom: 48px;
+      right: 60px;
+      font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace !important;
+      font-size: 1.1rem !important;
+      color: #6b7785 !important;
+      opacity: 1 !important;
+      z-index: 2;
+    }
+
+    /* Main content area */
+    .og-content {
+      position: absolute;
+      top: 50%;
+      left: 60px;
+      right: 60px;
+      transform: translateY(-50%);
+      z-index: 2;
+    }
+
+    .og-marker {
+      font-size: 4rem !important;
+      line-height: 1;
+      margin-bottom: 32px;
+      display: block;
+      opacity: 1 !important;
+    }
+
+    /* ============================================
+       TITLE — CRITICAL HIERARCHY FIX
+       Primary text is bright white (#ffffff)
+       Accent text is bright blue (#38bdf8)
+       Both at full opacity, no inheritance
+       ============================================ */
+    .og-title {
+      font-size: 4.5rem !important;
+      font-weight: 700 !important;
+      line-height: 1.05 !important;
+      letter-spacing: -0.02em !important;
+      margin-bottom: 24px !important;
+      color: #ffffff !important;
+      opacity: 1 !important;
+      text-shadow: none !important;
+    }
+
+    .og-title .accent {
+      color: #38bdf8 !important;
+      opacity: 1 !important;
+    }
+
+    /* Home variant — biggest title */
+    .og.home .og-title {
+      font-size: 5.5rem !important;
+      color: #ffffff !important;
+    }
+
+    .og-tagline {
+      font-size: 1.6rem !important;
+      line-height: 1.4 !important;
+      color: #9ba8b8 !important;
+      max-width: 900px;
+      font-weight: 400 !important;
+      opacity: 1 !important;
+    }
+
+    .og-tagline strong {
+      color: #ffffff !important;
+      font-weight: 500 !important;
+      opacity: 1 !important;
+    }
+
+    /* Footer bar */
+    .og-footer {
+      position: absolute;
+      bottom: 48px;
+      left: 60px;
+      font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace !important;
+      font-size: 0.95rem !important;
+      color: #6b7785 !important;
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      opacity: 1 !important;
+      z-index: 2;
+    }
+
+    .og-footer .dot {
+      width: 4px;
+      height: 4px;
+      background: #6b7785;
+      border-radius: 50%;
+    }
+  </style>
+</head>
+<body>
+  <h1 class="page-title">OG Image Templates — HeaderLab</h1>
+  <p class="page-help">
+    Each card below is exactly 1200×630 px. To export:<br />
+    1. Open Chrome DevTools (F12)<br />
+    2. <strong>Ctrl+Shift+P → "Show Sensors" → Device Pixel Ratio = 1</strong><br />
+    3. Right-click each card in Elements panel → "Capture node screenshot"
+  </p>
+
+  <div class="og-grid">
+
+    <!-- ────────────── 1. HOME ────────────── -->
+    <div>
+      <div class="og-meta">og-home.png — headerlab.dev/</div>
+      <div class="og home">
+        <div class="og-logo">[HeaderLab]</div>
+        <div class="og-content">
+          <h2 class="og-title">
+            <span class="accent">Open-source</span><br />
+            web security toolkit.
+          </h2>
+          <p class="og-tagline">
+            Free, fast, privacy-first. Built for developers and the security community.
+          </p>
+        </div>
+        <div class="og-footer">
+          <span>MIT licensed</span>
+          <span class="dot"></span>
+          <span>Runs in your browser</span>
+          <span class="dot"></span>
+          <span>No signup</span>
+        </div>
+        <div class="og-url">headerlab.dev</div>
+      </div>
+    </div>
+
+    <!-- ────────────── 2. HEADERS CHECKER ────────────── -->
+    <div>
+      <div class="og-meta">og-headers.png — headerlab.dev/headers</div>
+      <div class="og">
+        <div class="og-logo">[HeaderLab]</div>
+        <div class="og-content">
+          <span class="og-marker">🔒</span>
+          <h2 class="og-title">
+            HTTP Security<br />
+            Headers Checker
+          </h2>
+          <p class="og-tagline">
+            Scan any URL for HSTS, CSP, X-Frame-Options and more.<br />
+            <strong>Severity-ranked findings with copy-paste fix snippets.</strong>
+          </p>
+        </div>
+        <div class="og-footer">
+          <span>Nginx</span>
+          <span class="dot"></span>
+          <span>Apache</span>
+          <span class="dot"></span>
+          <span>Cloudflare</span>
+        </div>
+        <div class="og-url">headerlab.dev/headers</div>
+      </div>
+    </div>
+
+    <!-- ────────────── 3. CSP BUILDER ────────────── -->
+    <div>
+      <div class="og-meta">og-csp.png — headerlab.dev/csp</div>
+      <div class="og">
+        <div class="og-logo">[HeaderLab]</div>
+        <div class="og-content">
+          <span class="og-marker">🛡️</span>
+          <h2 class="og-title">
+            CSP Builder
+          </h2>
+          <p class="og-tagline">
+            Build a strict Content Security Policy with a visual editor.<br />
+            <strong>Get the header value ready to paste into server config.</strong>
+          </p>
+        </div>
+        <div class="og-footer">
+          <span>CSP Level 3</span>
+          <span class="dot"></span>
+          <span>strict-dynamic</span>
+          <span class="dot"></span>
+          <span>nonce + hash</span>
+        </div>
+        <div class="og-url">headerlab.dev/csp</div>
+      </div>
+    </div>
+
+    <!-- ────────────── 4. CSP EVALUATOR ────────────── -->
+    <div>
+      <div class="og-meta">og-csp-evaluator.png — headerlab.dev/csp-evaluator</div>
+      <div class="og">
+        <div class="og-logo">[HeaderLab]</div>
+        <div class="og-content">
+          <span class="og-marker">🛡️</span>
+          <h2 class="og-title">
+            CSP Evaluator
+          </h2>
+          <p class="og-tagline">
+            Paste any Content Security Policy.<br />
+            <strong>15+ weakness checks with plain-language explanations.</strong>
+          </p>
+        </div>
+        <div class="og-footer">
+          <span>unsafe-inline</span>
+          <span class="dot"></span>
+          <span>wildcards</span>
+          <span class="dot"></span>
+          <span>CDN bypass</span>
+        </div>
+        <div class="og-url">headerlab.dev/csp-evaluator</div>
+      </div>
+    </div>
+
+    <!-- ────────────── 5. JWT DECODER + VERIFIER ────────────── -->
+    <div>
+      <div class="og-meta">og-jwt.png — headerlab.dev/jwt</div>
+      <div class="og">
+        <div class="og-logo">[HeaderLab]</div>
+        <div class="og-content">
+          <span class="og-marker">🪪</span>
+          <h2 class="og-title">
+            JWT Decoder<br />
+            + Verifier
+          </h2>
+          <p class="og-tagline">
+            Decode any JWT <strong>and verify the signature.</strong><br />
+            HS/RS/ES 256/384/512. Browser Web Crypto. Zero dependencies.
+          </p>
+        </div>
+        <div class="og-footer">
+          <span>9 algorithms</span>
+          <span class="dot"></span>
+          <span>Claim validation</span>
+          <span class="dot"></span>
+          <span>~220 lines TS</span>
+        </div>
+        <div class="og-url">headerlab.dev/jwt</div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>
