@@ -5,7 +5,11 @@ import { defineMiddleware } from 'astro:middleware';
 
 const CSP = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com",
+  // No 'unsafe-inline' here: Astro extracts every <script> in this project to
+  // an external, hashed bundle (type="module" src="...") — verified against
+  // the build output across all pages. Keeping 'unsafe-inline' here would
+  // have silently undermined the policy without enabling anything.
+  "script-src 'self' https://static.cloudflareinsights.com",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: https:",
   "font-src 'self' data:",
