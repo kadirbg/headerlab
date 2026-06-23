@@ -1,6 +1,6 @@
 // Per-IP rate limiting for /api/check, backed by Cloudflare Workers KV.
 //
-// Design: fixed window, 60 seconds, 10 requests per IP. Not perfectly
+// Design: fixed window, 60 seconds, 20 requests per IP. Not perfectly
 // accurate at window boundaries (a client can do up to ~2x the limit by
 // timing requests around the edge) but it's cheap, requires no Durable
 // Objects, and fits the free tier. Good enough to stop casual abuse and
@@ -19,7 +19,7 @@
 // than breaking the endpoint — see the comment below.
 
 const WINDOW_SECONDS = 60;
-const MAX_REQUESTS_PER_WINDOW = 10;
+const MAX_REQUESTS_PER_WINDOW = 20;
 
 export interface RateLimitResult {
   allowed: boolean;
