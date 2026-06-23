@@ -1,0 +1,11 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "headerlab",
+  "compatibility_date": "2026-04-15",
+  "kv_namespaces": [
+    {
+      "binding": "RATE_LIMIT_KV",
+      "id": "8785fb743d6347549e7891ca8b09c490"
+    }
+  ]
+}
