@@ -1,5 +1,7 @@
 // Content Security Policy evaluation engine
 
+import { matchBypassUrl } from './csp-bypass-hosts.ts';
+
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 export type Grade = 'A+' | 'A' | 'B' | 'C' | 'D' | 'F';
 
@@ -46,17 +48,19 @@ const SEVERITY_ORDER: Record<Severity, number> = {
   critical: 0, high: 1, medium: 2, low: 3, info: 4
 };
 
-export function parseCSP(input: string): ParsedCSP {
-  let policy = input.trim();
-  let reportOnly = false;
-
-  // Strip "Content-Security-Policy:" or "Content-Security-Policy-Report-Only:" prefix
-  const headerMatch = policy.match(/^content-security-policy(-report-only)?\s*:\s*/i);
-  if (headerMatch) {
-    reportOnly = !!headerMatch[1];
-    policy = policy.slice(headerMatch[0].length);
+// Keywords ('self', 'unsafe-inline', ...) and scheme sources (https:) are
+// case-insensitive per the CSP spec; nonce and hash values are not.
+function normalizeSource(token: string): string {
+  const lower = token.toLowerCase();
+  if (lower.startsWith("'nonce-") || /^'sha(256|384|512)-/.test(lower)) {
+    const dash = token.indexOf('-');
+    return lower.slice(0, dash + 1) + token.slice(dash + 1);
   }
+  if (token.startsWith("'") || /^[a-z][a-z0-9+.-]*:$/i.test(token)) return lower;
+  return token;
+}
 
+function parseSinglePolicy(policy: string, reportOnly: boolean, raw: string): ParsedCSP {
   const directives = new Map<string, string[]>();
   const parts = policy.split(';').map(s => s.trim()).filter(Boolean);
 
@@ -64,17 +68,58 @@ export function parseCSP(input: string): ParsedCSP {
     const tokens = part.split(/\s+/).filter(Boolean);
     if (tokens.length === 0) continue;
     const directive = tokens[0].toLowerCase();
-    const sources = tokens.slice(1);
-    directives.set(directive, sources);
+    // Per CSP3 §2.2.1, a repeated directive is ignored: the first one wins.
+    if (directives.has(directive)) continue;
+    directives.set(directive, tokens.slice(1).map(normalizeSource));
   }
 
-  return { directives, reportOnly, raw: input.trim() };
+  return { directives, reportOnly, raw };
+}
+
+/**
+ * Parses a serialized CSP list. Several CSP headers on one response are joined
+ * with ", " by fetch(), and the spec defines each comma-separated part as a
+ * separate policy (CSP3 §2.2.2). Each policy is enforced independently.
+ */
+export function parseCSPList(input: string): ParsedCSP[] {
+  let text = input.trim();
+  let reportOnly = false;
+
+  // Strip "Content-Security-Policy:" or "Content-Security-Policy-Report-Only:" prefix
+  const headerMatch = text.match(/^content-security-policy(-report-only)?\s*:\s*/i);
+  if (headerMatch) {
+    reportOnly = !!headerMatch[1];
+    text = text.slice(headerMatch[0].length);
+  }
+
+  return text
+    .split(',')
+    .map(p => p.trim())
+    .filter(Boolean)
+    .map(p => parseSinglePolicy(p, reportOnly, p));
+}
+
+/** Parses the first policy of a (possibly comma-separated) CSP value. */
+export function parseCSP(input: string): ParsedCSP {
+  const policies = parseCSPList(input);
+  if (policies.length === 0) return { directives: new Map(), reportOnly: false, raw: input.trim() };
+  return { ...policies[0], raw: input.trim() };
 }
 
 export function evaluateCSP(input: string): EvaluationResult {
   const parsed = parseCSP(input);
   const findings: Finding[] = [];
   const dir = parsed.directives;
+
+  const policyCount = parseCSPList(input).length;
+  if (policyCount > 1) {
+    findings.push({
+      severity: 'info',
+      title: `${policyCount} policies found; only the first is evaluated`,
+      description: 'The input contains several comma-separated policies, as happens when a response sends more than one CSP header. Browsers enforce every policy, and a resource must pass all of them.',
+      recommendation: 'Paste each policy separately to see its findings.'
+    });
+  }
 
   // Empty/invalid input
   if (dir.size === 0) {
@@ -100,14 +145,17 @@ export function evaluateCSP(input: string): EvaluationResult {
     });
   } else {
     const hasStrictDynamic = scriptSrc.includes("'strict-dynamic'");
-    const hasNonceOrHash = scriptSrc.some(s => s.startsWith("'nonce-") || s.startsWith("'sha"));
+    const hasNonceOrHash = scriptSrc.some(s => s.startsWith("'nonce-") || /^'sha(256|384|512)-/.test(s));
+    // With 'strict-dynamic', browsers ignore host and scheme sources (and
+    // 'self'), so *, https:, http:, data: and allowlisted hosts are inert.
+    const allowlistIgnored = hasStrictDynamic;
 
     if (scriptSrc.includes("'unsafe-inline'")) {
-      if (hasStrictDynamic && hasNonceOrHash) {
+      if (hasNonceOrHash) {
         findings.push({
           severity: 'info',
-          title: "'unsafe-inline' present but ignored (strict-dynamic + nonce/hash)",
-          description: "Modern browsers ignore 'unsafe-inline' when 'strict-dynamic' is set with a nonce or hash. This is a backward-compatibility pattern for legacy browsers.",
+          title: "'unsafe-inline' present but ignored (nonce/hash present)",
+          description: "Browsers supporting CSP Level 2 or later ignore 'unsafe-inline' when the directive also has a nonce or hash. This is a backward-compatibility pattern for legacy browsers.",
           directive: scriptDirName,
           recommendation: "Safe as-is. You can remove 'unsafe-inline' if you don't need legacy browser support."
         });
@@ -132,7 +180,17 @@ export function evaluateCSP(input: string): EvaluationResult {
       });
     }
 
-    if (scriptSrc.includes('*')) {
+    if (allowlistIgnored && scriptSrc.some(s => !s.startsWith("'"))) {
+      findings.push({
+        severity: 'info',
+        title: "Host and scheme sources ignored ('strict-dynamic')",
+        description: "With 'strict-dynamic', modern browsers ignore host allowlists and scheme sources such as https:. They are kept only as a fallback for older browsers.",
+        directive: scriptDirName,
+        recommendation: 'No action needed. This is the recommended strict CSP pattern.'
+      });
+    }
+
+    if (!allowlistIgnored && scriptSrc.includes('*')) {
       findings.push({
         severity: 'critical',
         title: 'Wildcard (*) in ' + scriptDirName,
@@ -142,7 +200,24 @@ export function evaluateCSP(input: string): EvaluationResult {
       });
     }
 
-    if (scriptSrc.includes('http:')) {
+    if (!allowlistIgnored) {
+      const allowsEval = scriptSrc.includes("'unsafe-eval'");
+      for (const s of scriptSrc) {
+        const bypass = matchBypassUrl(s, allowsEval);
+        if (!bypass) continue;
+        findings.push({
+          severity: 'high',
+          title: `Allowlisted host with known CSP bypass: ${bypass.hostname}`,
+          description: bypass.kind === 'angular'
+            ? `${s} serves AngularJS builds. An attacker who can inject HTML can load AngularJS from this host and execute script through its template syntax.`
+            : `${s} hosts a JSONP endpoint. An attacker can load it as a script with a chosen callback and execute arbitrary code.`,
+          directive: scriptDirName,
+          recommendation: "Remove the host from the allowlist, or switch to a nonce-based policy with 'strict-dynamic'."
+        });
+      }
+    }
+
+    if (!allowlistIgnored && scriptSrc.includes('http:')) {
       findings.push({
         severity: 'critical',
         title: 'Plain http: scheme in ' + scriptDirName,
@@ -152,7 +227,7 @@ export function evaluateCSP(input: string): EvaluationResult {
       });
     }
 
-    if (scriptSrc.includes('https:')) {
+    if (!allowlistIgnored && scriptSrc.includes('https:')) {
       findings.push({
         severity: 'high',
         title: 'Broad https: scheme in ' + scriptDirName,
@@ -162,7 +237,7 @@ export function evaluateCSP(input: string): EvaluationResult {
       });
     }
 
-    if (scriptSrc.includes('data:')) {
+    if (!allowlistIgnored && scriptSrc.includes('data:')) {
       findings.push({
         severity: 'high',
         title: "data: scheme in " + scriptDirName,
