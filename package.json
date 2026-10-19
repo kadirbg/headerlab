@@ -9,7 +9,8 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "test:research": "node --experimental-strip-types --no-warnings --test research/tests/*.test.ts"
   },
   "dependencies": {
     "@astrojs/cloudflare": "^14.0.0",
