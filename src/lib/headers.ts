@@ -149,7 +149,10 @@ Header always set Content-Security-Policy "default-src 'self'; script-src 'self'
     },
     validate: (value) => {
       if (!value) return 'fail';
-      const safe = ['no-referrer', 'no-referrer-when-downgrade', 'same-origin', 'strict-origin', 'strict-origin-when-cross-origin'];
+      // no-referrer-when-downgrade is excluded: it sends the full URL (path and
+      // query) to every HTTPS origin, which is the leak this header exists to
+      // prevent. It is the legacy default the methodology page warns about.
+      const safe = ['no-referrer', 'same-origin', 'strict-origin', 'strict-origin-when-cross-origin'];
       // Comma-separated fallback lists: per spec, browsers walk right-to-left
       // and use the first recognized value. Treat the rightmost as effective.
       const parts = value.toLowerCase().split(',').map(s => s.trim()).filter(Boolean);
