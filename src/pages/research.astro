@@ -1,0 +1,122 @@
+---
+import Layout from '../components/Layout.astro';
+
+const title = 'Research Scanner — HeaderLab';
+const description = 'What the HeaderLabResearch crawler does, how it behaves on your site, how results are reported, and how to opt out.';
+---
+
+<Layout title={title} description={description}>
+  <article class="legal-page">
+    <header class="page-header">
+      <h1>Research Scanner</h1>
+      <p class="updated">Last updated: 20 October 2026</p>
+    </header>
+
+    <p class="lede">
+      If you found <code>HeaderLabResearch/1.0</code> in your logs: it is a small, polite measurement of HTTP security headers on popular websites in Turkey. It makes a handful of ordinary page requests per site, reads the response headers, and moves on. Nothing is attacked, submitted, or logged into.
+    </p>
+
+    <section>
+      <h2>What it measures</h2>
+      <p>How widely security headers such as <code>Content-Security-Policy</code>, <code>Strict-Transport-Security</code>, <code>X-Frame-Options</code> and <code>Referrer-Policy</code> are used, and whether the Content Security Policies in use actually protect against script injection. The results are compared with an earlier study of Turkish websites published in 2016.</p>
+    </section>
+
+    <section>
+      <h2>What it does on your site</h2>
+      <ul>
+        <li>One <code>GET</code> request to <code>http://</code> and one to <code>https://</code> on your home page, following redirects.</li>
+        <li>The same for up to ten subdomains that your home page links to.</li>
+        <li>At least two seconds between consecutive requests to the same site, and only a few sites at a time.</li>
+        <li>No forms, no logins, no query parameters, no vulnerability tests, no crawling beyond those pages.</li>
+      </ul>
+      <p>The full source code is public in our <a href="https://github.com/kadirbg/headerlab/tree/main/research">repository</a>.</p>
+    </section>
+
+    <section>
+      <h2>What is kept and how it is reported</h2>
+      <p>The scanner stores the response headers, the redirect chain, and a SHA-256 hash of the page; the page content itself is not stored. Results are reported in aggregate, by sector. Individual websites are not named in any publication, and weak configurations are never singled out.</p>
+    </section>
+
+    <section>
+      <h2>Opting out</h2>
+      <p>To have your domain excluded from current and future runs, write to <a href="mailto:hello@headerlab.dev">hello@headerlab.dev</a> with the domain name. We will remove it from the scan list and delete any stored data for it.</p>
+    </section>
+
+    <section>
+      <h2>User agent</h2>
+      <p>Requests identify themselves with a current Chrome user agent string followed by <code>HeaderLabResearch/1.0 (+https://headerlab.dev/research)</code>. The browser part is there because some firewalls reject unknown clients outright, which would hide the headers a real visitor receives.</p>
+    </section>
+  </article>
+</Layout>
+
+<style>
+  .legal-page {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 2rem 1rem 4rem;
+    line-height: 1.65;
+  }
+
+  .legal-page .page-header {
+    margin-bottom: 2rem;
+  }
+
+  .legal-page .updated {
+    color: var(--color-text-muted, #6b7280);
+    font-size: 0.95rem;
+    margin: 0;
+  }
+
+  .legal-page .lede {
+    font-size: 1.1rem;
+    color: var(--color-text-muted, #555);
+    margin: 0 0 3rem;
+    padding: 1rem 1.2rem;
+    background: var(--color-note-bg, rgba(59, 130, 246, 0.06));
+    border-left: 3px solid var(--color-note-border, #3b82f6);
+    border-radius: 4px;
+  }
+
+  .legal-page section {
+    margin-bottom: 2.5rem;
+  }
+
+  .legal-page h1 {
+    font-size: 2.25rem;
+    margin: 0 0 0.5rem;
+    line-height: 1.2;
+  }
+
+  .legal-page h2 {
+    font-size: 1.35rem;
+    margin: 2rem 0 1rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid var(--color-border, #e5e7eb);
+  }
+
+  .legal-page p,
+  .legal-page li {
+    margin-bottom: 0.75rem;
+  }
+
+  .legal-page ul {
+    padding-left: 1.4rem;
+  }
+
+  .legal-page code {
+    font-size: 0.92em;
+    padding: 0.1em 0.35em;
+    background: var(--color-code-bg, rgba(0, 0, 0, 0.05));
+    border-radius: 3px;
+    font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  }
+
+  .legal-page a {
+    color: var(--color-link, #2563eb);
+    text-decoration: underline;
+  }
+
+  .legal-page a:hover {
+    text-decoration: none;
+  }
+</style>

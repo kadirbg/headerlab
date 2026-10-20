@@ -15,7 +15,8 @@ else here is research-only and is not deployed.
 | `criteria/csp-v1.ts` | CSP effectiveness classes and error flags H1–H9 |
 | `criteria/headers-v1.ts` | Header validity rules, cookie variables, 2016-compatible variables |
 | `tests/` | Unit tests. `csp-v1.test.ts` starts with the reference examples of criteria set v1 |
-| `scanner/` | Bulk scanner (coming next) |
+| `scanner/scan.ts` | Bulk scanner: raw redirect chains and headers → `scan.jsonl` |
+| `scanner/classify.ts` | `scan.jsonl` → `main.csv` / `sub.csv`, coded with criteria set v1 |
 | `data/`, `output/` | Site lists, raw scans and results. **Git-ignored; never committed** |
 
 ## Criteria version
@@ -41,6 +42,46 @@ npm run test:research
 ```
 
 Requires Node.js 22 or later (type stripping).
+
+## Scanning
+
+Run on a machine with a Turkish internet connection (not a corporate network,
+not a cloud host): the study measures what a visitor in Turkey receives.
+
+```sh
+npm ci
+# pilot: first 20 sites of the sample
+npm run scan -- --input research/data/sample/orneklem_v1.csv --run pilot-1 --limit 20
+npm run classify -- --run pilot-1
+```
+
+- Output goes to `research/output/<run>/`: `scan.jsonl` (raw), `manifest.json`
+  (parameters, tool commit, input and output hashes), `main.csv`, `sub.csv`.
+- Interrupted runs resume: run the same command again; finished sites are skipped.
+- `--only a.com.tr,b.com` scans selected sites; `--concurrency`, `--gap`,
+  `--timeout`, `--max-subdomains` change the defaults (4, 2000 ms, 15000 ms, 10).
+- Domains listed one per line in `research/data/opt-out.txt` are never scanned.
+- Set the Chrome version in `--ua` (or `DEFAULT_UA` in `scan.ts`) to the one
+  installed on the scanning machine.
+
+Behaviour is described publicly at <https://headerlab.dev/research>.
+
+### Sealing the raw data
+
+Right after a run, timestamp `scan.jsonl` with an RFC 3161 TSA so it can later
+be shown that the data was not changed after collection. Example with FreeTSA
+(any RFC 3161 TSA works):
+
+```sh
+cd research/output/<run>
+openssl ts -query -data scan.jsonl -sha256 -cert -out scan.tsq
+curl -s -H "Content-Type: application/timestamp-query" --data-binary @scan.tsq https://freetsa.org/tsr -o scan.tsr
+openssl ts -reply -in scan.tsr -text          # shows the time and the hash
+# verify later (cacert.pem and tsa.crt from the TSA's website):
+openssl ts -verify -data scan.jsonl -in scan.tsr -CAfile cacert.pem -untrusted tsa.crt
+```
+
+Keep `scan.jsonl`, `scan.tsq`, `scan.tsr` and `manifest.json` together.
 
 ## Comparison with 2016
 
