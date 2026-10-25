@@ -1,0 +1,11 @@
+{
+  "name": "headerlab-research-validation",
+  "private": true,
+  "type": "module",
+  "description": "Comparison of the research classification with MDN HTTP Observatory and Google CSP Evaluator",
+  "engines": { "node": ">=24" },
+  "dependencies": {
+    "@mdn/mdn-http-observatory": "1.7.1",
+    "csp_evaluator": "1.1.8"
+  }
+}
