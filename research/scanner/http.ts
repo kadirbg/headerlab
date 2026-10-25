@@ -11,6 +11,21 @@ import zlib from 'node:zlib';
 import { createHash } from 'node:crypto';
 import type { TLSSocket } from 'node:tls';
 
+/**
+ * Request headers of a top-level navigation in Chrome, so sites answer as they
+ * would to a visitor. The User-Agent (set per run) still names the scanner.
+ */
+export const REQUEST_HEADERS: Record<string, string> = {
+  Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+  'Accept-Language': 'tr-TR,tr;q=0.9,en;q=0.8',
+  'Accept-Encoding': 'gzip, deflate, br',
+  'Upgrade-Insecure-Requests': '1',
+  'Sec-Fetch-Dest': 'document',
+  'Sec-Fetch-Mode': 'navigate',
+  'Sec-Fetch-Site': 'none',
+  'Sec-Fetch-User': '?1',
+};
+
 export interface FetchOptions {
   userAgent: string;
   /** Hard deadline for one request (connect + headers + body), in ms. */
@@ -115,12 +130,7 @@ function requestOnce(url: string, opts: FetchOptions, verifyTls: boolean, readBo
       agent: false,
       rejectUnauthorized: verifyTls,
       servername: u.hostname,
-      headers: {
-        'User-Agent': opts.userAgent,
-        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'tr-TR,tr;q=0.9,en;q=0.8',
-        'Accept-Encoding': 'gzip, deflate, br',
-      },
+      headers: { ...REQUEST_HEADERS, 'User-Agent': opts.userAgent },
     });
 
     const deadline = setTimeout(() => {

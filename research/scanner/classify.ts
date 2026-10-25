@@ -58,6 +58,37 @@ export function codePage(page: ScanRecord, httpsChain: ScanRecord | undefined): 
   return flat(result);
 }
 
+/** Final statuses that mean the scanner was refused rather than the page missing (C3). */
+const BLOCK_STATUSES = new Set([400, 403, 406, 429]);
+
+/**
+ * Access class of a site or subdomain (C3):
+ *   ok          a 2xx page was received
+ *   engellendi  refused: 400/403/406/429, or a bot challenge (cf-mitigated)
+ *   ulasilamadi no HTTP response at all (DNS, connection, timeout)
+ *   hata        any other outcome (404, 5xx, redirect loop, …)
+ * Pages that are not "ok" are never coded: a challenge page carries the
+ * protection service's headers, not the site's.
+ */
+export function accessClass(recs: (ScanRecord | undefined)[]): 'ok' | 'engellendi' | 'ulasilamadi' | 'hata' {
+  const rs = recs.filter((r): r is ScanRecord => !!r);
+  if (rs.some(reached)) return 'ok';
+  const answered = rs.filter(r => r.hops.some(h => h.status !== null));
+  if (!answered.length) return 'ulasilamadi';
+  const blocked = answered.some(r => {
+    const last = [...r.hops].reverse().find(h => h.status !== null)!;
+    return BLOCK_STATUSES.has(last.status!) || last.headers.some(([k]) => k.toLowerCase() === 'cf-mitigated');
+  });
+  return blocked ? 'engellendi' : 'hata';
+}
+
+/** True when the final URL is outside the site's registrable domain (C4). */
+export function outsideDomain(finalUrl: string | null | undefined, domain: string): boolean {
+  if (!finalUrl) return false;
+  const h = new URL(finalUrl).hostname.toLowerCase();
+  return h !== domain && !h.endsWith(`.${domain}`);
+}
+
 const tlsUnverified = (recs: ScanRecord[]) => recs.some(r => r.hops.some(h => h.tls && !h.tls.verified));
 
 export function classify(records: ScanRecord[], sample: Map<string, Record<string, string>>): { main: Row[]; sub: Row[] } {
@@ -83,18 +114,18 @@ export function classify(records: ScanRecord[], sample: Map<string, Record<strin
     };
 
     if (!page) {
-      main.push({ ...common, erisim: 'hata', son_url: https?.finalUrl ?? http?.finalUrl ?? '', son_durum: https?.finalStatus ?? http?.finalStatus ?? '', hata: https?.error ?? http?.error ?? `HTTP ${https?.finalStatus ?? http?.finalStatus}` });
+      main.push({ ...common, erisim: accessClass([http, https]), alan_disi: false, son_url: https?.finalUrl ?? http?.finalUrl ?? '', son_durum: https?.finalStatus ?? http?.finalStatus ?? '', hata: https?.error ?? http?.error ?? `HTTP ${https?.finalStatus ?? http?.finalStatus}` });
       continue;
     }
-    main.push({ ...common, erisim: 'ok', son_url: page.finalUrl, son_durum: page.finalStatus, hata: '', ...codePage(page, https) });
+    main.push({ ...common, erisim: 'ok', alan_disi: outsideDomain(page.finalUrl, domain), son_url: page.finalUrl, son_durum: page.finalStatus, hata: '', ...codePage(page, https) });
 
     for (const host of new Set(recs.filter(r => r.layer === 'sub').map(r => r.host))) {
       const sh = recs.find(r => r.layer === 'sub' && r.host === host && r.scheme === 'https');
       const sp = recs.find(r => r.layer === 'sub' && r.host === host && r.scheme === 'http');
       const p = reached(sh) ? sh : reached(sp) ? sp : undefined;
       const sbase = { ...base, alt_alan: host, tls_dogrulanmadi: tlsUnverified([sh, sp].filter(Boolean) as ScanRecord[]) };
-      if (!p) sub.push({ ...sbase, erisim: 'hata', son_url: sh?.finalUrl ?? sp?.finalUrl ?? '', son_durum: sh?.finalStatus ?? sp?.finalStatus ?? '', hata: sh?.error ?? sp?.error ?? 'non-2xx' });
-      else sub.push({ ...sbase, erisim: 'ok', son_url: p.finalUrl, son_durum: p.finalStatus, hata: '', ...codePage(p, sh) });
+      if (!p) sub.push({ ...sbase, erisim: accessClass([sh, sp]), alan_disi: false, son_url: sh?.finalUrl ?? sp?.finalUrl ?? '', son_durum: sh?.finalStatus ?? sp?.finalStatus ?? '', hata: sh?.error ?? sp?.error ?? `HTTP ${sh?.finalStatus ?? sp?.finalStatus}` });
+      else sub.push({ ...sbase, erisim: 'ok', alan_disi: outsideDomain(p.finalUrl, domain), son_url: p.finalUrl, son_durum: p.finalStatus, hata: '', ...codePage(p, sh) });
     }
   }
   return { main, sub };
@@ -123,8 +154,8 @@ function main() {
   fs.writeFileSync(path.join(dir, 'main.csv'), toCsv(main, columnsOf(main)));
   fs.writeFileSync(path.join(dir, 'sub.csv'), toCsv(sub, columnsOf(sub)));
 
-  const okCount = main.filter(r => r.erisim === 'ok').length;
-  console.log(`criteria ${CRITERIA_VERSION}: ${main.length} sites (${okCount} reached), ${sub.length} subdomains`);
+  const count = (rows: Row[]) => ['ok', 'engellendi', 'ulasilamadi', 'hata'].map(k => `${k} ${rows.filter(r => r.erisim === k).length}`).join(', ');
+  console.log(`criteria ${CRITERIA_VERSION}: ${main.length} sites (${count(main)}), ${sub.filter(r => r.alan_disi).length ? `${sub.filter(r => r.alan_disi).length} outside domain, ` : ''}${sub.length} subdomains (${count(sub)})`);
   console.log(`wrote ${path.join(dir, 'main.csv')} and sub.csv`);
 }
 

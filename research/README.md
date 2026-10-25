@@ -35,6 +35,9 @@ The study reports these rule-based classes, **not** HeaderLab's A–F grade.
 | 2026-10-17 | v1 frozen | Before data collection |
 | 2026-10-19 | C1: under `'strict-dynamic'`, `data:` does not trigger H3 | Browsers ignore scheme sources under `'strict-dynamic'`; v1 already said so for `*`, `https:`, `http:` and risky hosts |
 | 2026-10-19 | C2: a script policy of exactly `'none'` meets the "nonce or hash" condition of the *etkili* class | No script can run under it |
+| 2026-10-25 | C3: access classes `ok` / `engellendi` (400, 403, 406, 429 or a bot challenge) / `ulasilamadi` (no response) / `hata`; only `ok` pages are coded, protection is never bypassed | Pilot: bot challenges answered with the protection service's own headers |
+| 2026-10-25 | C4: `alan_disi` flags a page whose final URL is outside the site's registrable domain; such subdomains are left out of subdomain-layer rates | Pilot: a subdomain redirected to another domain |
+| 2026-10-25 | Scanner sends Chrome's navigation request headers (`Sec-Fetch-*`, `Upgrade-Insecure-Requests`); the User-Agent still names the scanner | Measure what a visitor receives |
 
 ## Running the tests
 

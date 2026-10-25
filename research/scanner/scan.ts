@@ -21,7 +21,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { fetchChain, sleep, type ChainResult, type FetchOptions } from './http.ts';
+import { fetchChain, sleep, REQUEST_HEADERS, type ChainResult, type FetchOptions } from './http.ts';
 import { extractLinkHosts, extractMetaCsp, selectSubdomains } from './html.ts';
 import { parseCsv } from './csv.ts';
 
@@ -196,7 +196,7 @@ async function main() {
   manifest.schema = SCHEMA_VERSION;
   manifest.input = { path: values.input, sha256: sha256File(values.input!), rows: sites.length };
   manifest.optOutCount = optOut.size;
-  manifest.parameters = { concurrency: Number(values.concurrency), gapMs: cfg.gapMs, timeoutMs: cfg.fetch.timeoutMs, maxBodyBytes: cfg.fetch.maxBodyBytes, maxSubdomains: cfg.maxSubdomains, maxRedirects: cfg.maxRedirects, userAgent: cfg.fetch.userAgent };
+  manifest.parameters = { concurrency: Number(values.concurrency), gapMs: cfg.gapMs, timeoutMs: cfg.fetch.timeoutMs, maxBodyBytes: cfg.fetch.maxBodyBytes, maxSubdomains: cfg.maxSubdomains, maxRedirects: cfg.maxRedirects, userAgent: cfg.fetch.userAgent, requestHeaders: REQUEST_HEADERS };
   manifest.tool = { commit: cfg.commit, node: process.version, platform: `${process.platform}-${process.arch}` };
   manifest.sessions = [...((manifest.sessions as unknown[]) ?? []), { started: iso(), sites: todo.length, resumedAfter: done.size }];
   fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
