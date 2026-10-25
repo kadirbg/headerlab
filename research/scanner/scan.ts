@@ -11,6 +11,8 @@
 // Usage (Node.js 22+):
 //   node --experimental-strip-types research/scanner/scan.ts \
 //     --input research/data/sample/orneklem_v1.csv --run pilot-1 [--limit 20]
+//   --only-file <txt> scans only the domains listed (one per line), e.g. a
+//   re-measurement of sites whose first measurement failed at network level.
 //
 // Politeness: one GET per page, no forms or logins, at most --concurrency
 // sites at a time, --gap ms between consecutive requests to the same site.
@@ -149,6 +151,7 @@ async function main() {
       out: { type: 'string', default: 'research/output' },
       limit: { type: 'string' },
       only: { type: 'string' },
+      'only-file': { type: 'string' },
       concurrency: { type: 'string', default: '4' },
       gap: { type: 'string', default: '2000' },
       timeout: { type: 'string', default: '15000' },
@@ -171,6 +174,10 @@ async function main() {
     : new Set<string>();
   let domains = sites.map(s => s.alan_adi.toLowerCase()).filter(d => d && !optOut.has(d));
   if (values.only) domains = domains.filter(d => values.only!.split(',').includes(d));
+  if (values['only-file']) {
+    const keep = new Set(fs.readFileSync(values['only-file'], 'utf8').split(/\r?\n/).map(s => s.trim().toLowerCase()).filter(s => s && !s.startsWith('#')));
+    domains = domains.filter(d => keep.has(d));
+  }
   if (values.limit) domains = domains.slice(0, Number(values.limit));
 
   // Resume: skip sites whose records are already in scan.jsonl.
@@ -196,6 +203,7 @@ async function main() {
   manifest.schema = SCHEMA_VERSION;
   manifest.input = { path: values.input, sha256: sha256File(values.input!), rows: sites.length };
   manifest.optOutCount = optOut.size;
+  if (values['only-file']) manifest.onlyFile = { path: values['only-file'], sha256: sha256File(values['only-file']), sites: domains.length };
   manifest.parameters = { concurrency: Number(values.concurrency), gapMs: cfg.gapMs, timeoutMs: cfg.fetch.timeoutMs, maxBodyBytes: cfg.fetch.maxBodyBytes, maxSubdomains: cfg.maxSubdomains, maxRedirects: cfg.maxRedirects, userAgent: cfg.fetch.userAgent, requestHeaders: REQUEST_HEADERS };
   manifest.tool = { commit: cfg.commit, node: process.version, platform: `${process.platform}-${process.arch}` };
   manifest.sessions = [...((manifest.sessions as unknown[]) ?? []), { started: iso(), sites: todo.length, resumedAfter: done.size }];

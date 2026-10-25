@@ -15,7 +15,7 @@ import type { AddressInfo } from 'node:net';
 import { fetchChain, decodeBody, type FetchOptions } from '../scanner/http.ts';
 import { extractMetaCsp, extractLinkHosts, selectSubdomains, parseAttributes } from '../scanner/html.ts';
 import { parseCsv, toCsv } from '../scanner/csv.ts';
-import { accessClass, outsideDomain, classify } from '../scanner/classify.ts';
+import { accessClass, outsideDomain, mergeRuns, classify } from '../scanner/classify.ts';
 import type { ScanRecord } from '../scanner/scan.ts';
 
 const opts: FetchOptions = { userAgent: 'test', timeoutMs: 1500, maxBodyBytes: 64 * 1024 };
@@ -285,4 +285,14 @@ test('classify: challenge on https:// does not supply HSTS or hide HTTPS', () =>
   assert.equal(r.erisim, 'ok');
   assert.equal(r.https_erisilir, true);
   assert.equal(r.hsts_max_age, 31536000);
+});
+
+test('mergeRuns: a later run replaces all records of the domains it contains', () => {
+  const a = [rec({ run: 'a', domain: 'x.com', scheme: 'http' }), rec({ run: 'a', domain: 'x.com', scheme: 'https' }), rec({ run: 'a', domain: 'x.com', layer: 'sub', host: 's.x.com' }), rec({ run: 'a', domain: 'y.com' })];
+  const b = [rec({ run: 'b', domain: 'x.com', scheme: 'https' })];
+  const m = mergeRuns([a, b]);
+  assert.deepEqual(m.filter(r => r.domain === 'x.com').map(r => r.run), ['b']);
+  assert.equal(m.filter(r => r.domain === 'y.com').length, 1);
+  const rows = classify(m, new Map()).main;
+  assert.equal(rows.find(r => r.alan_adi === 'x.com')!.olcum, 'b');
 });

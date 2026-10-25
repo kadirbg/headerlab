@@ -3,9 +3,14 @@
 //
 // Usage:
 //   node --experimental-strip-types research/scanner/classify.ts \
-//     --run pilot-1 [--sample research/data/sample/orneklem_v1.csv]
+//     --run pilot-1 [--sample research/data/sample/orneklem_v1.csv] [--merge run-b]
 //
-// Writes research/output/<run>/main.csv and sub.csv.
+// --merge: for every domain present in the listed runs (comma-separated, later
+// wins), all of its records from --run are replaced by those of the later run.
+// Each row's olcum column names the run its data came from.
+//
+// Writes research/output/<run>/main.csv and sub.csv (main-merged.csv and
+// sub-merged.csv with --merge).
 
 import { parseArgs } from 'node:util';
 import { fileURLToPath } from 'node:url';
@@ -102,7 +107,7 @@ export function classify(records: ScanRecord[], sample: Map<string, Record<strin
 
   for (const [domain, recs] of byDomain) {
     const meta = sample.get(domain) ?? {};
-    const base = { alan_adi: domain, kaynak: meta.kaynak ?? '', sektor: meta.sektor ?? '', alt_sektor: meta.alt_sektor ?? '' };
+    const base = { alan_adi: domain, kaynak: meta.kaynak ?? '', sektor: meta.sektor ?? '', alt_sektor: meta.alt_sektor ?? '', olcum: recs[0].run };
     const http = recs.find(r => r.layer === 'main' && r.scheme === 'http');
     const https = recs.find(r => r.layer === 'main' && r.scheme === 'https');
     const page = reached(https) ? https : reached(http) ? http : undefined;
@@ -135,6 +140,17 @@ export function classify(records: ScanRecord[], sample: Map<string, Record<strin
   return { main, sub };
 }
 
+/** Replaces a domain's records with those of later runs (re-measurement). */
+export function mergeRuns(runs: ScanRecord[][]): ScanRecord[] {
+  const byDomain = new Map<string, ScanRecord[]>();
+  for (const recs of runs) {
+    const fresh = new Map<string, ScanRecord[]>();
+    for (const r of recs) (fresh.get(r.domain) ?? fresh.set(r.domain, []).get(r.domain)!).push(r);
+    for (const [d, rs] of fresh) byDomain.set(d, rs);
+  }
+  return [...byDomain.values()].flat();
+}
+
 const columnsOf = (rows: Row[]) => {
   const seen: string[] = [];
   for (const r of rows) for (const k of Object.keys(r)) if (!seen.includes(k)) seen.push(k);
@@ -147,20 +163,25 @@ function main() {
       run: { type: 'string' },
       out: { type: 'string', default: 'research/output' },
       sample: { type: 'string', default: 'research/data/sample/orneklem_v1.csv' },
+      merge: { type: 'string' },
     },
   });
   if (!values.run) throw new Error('--run is required');
   const dir = path.join(values.out!, values.run);
-  const records = fs.readFileSync(path.join(dir, 'scan.jsonl'), 'utf8').split('\n').filter(l => l.trim()).map(l => JSON.parse(l) as ScanRecord);
+  const load = (run: string) => fs.readFileSync(path.join(values.out!, run, 'scan.jsonl'), 'utf8').split('\n').filter(l => l.trim()).map(l => JSON.parse(l) as ScanRecord);
+  const extra = values.merge ? values.merge.split(',').map(s => s.trim()).filter(Boolean) : [];
+  const records = mergeRuns([load(values.run), ...extra.map(load)]);
   const sample = new Map(parseCsv(fs.readFileSync(values.sample!, 'utf8')).map(r => [r.alan_adi.toLowerCase(), r]));
 
   const { main, sub } = classify(records, sample);
-  fs.writeFileSync(path.join(dir, 'main.csv'), toCsv(main, columnsOf(main)));
-  fs.writeFileSync(path.join(dir, 'sub.csv'), toCsv(sub, columnsOf(sub)));
+  const suffix = extra.length ? '-merged' : '';
+  fs.writeFileSync(path.join(dir, `main${suffix}.csv`), toCsv(main, columnsOf(main)));
+  fs.writeFileSync(path.join(dir, `sub${suffix}.csv`), toCsv(sub, columnsOf(sub)));
+  for (const run of extra) console.log(`merged ${run}: ${main.filter(r => r.olcum === run).length} sites taken from it`);
 
   const count = (rows: Row[]) => ['ok', 'engellendi', 'ulasilamadi', 'hata'].map(k => `${k} ${rows.filter(r => r.erisim === k).length}`).join(', ');
   console.log(`criteria ${CRITERIA_VERSION}: ${main.length} sites (${count(main)}), ${sub.filter(r => r.alan_disi).length ? `${sub.filter(r => r.alan_disi).length} outside domain, ` : ''}${sub.length} subdomains (${count(sub)})`);
-  console.log(`wrote ${path.join(dir, 'main.csv')} and sub.csv`);
+  console.log(`wrote ${path.join(dir, `main${suffix}.csv`)} and sub${suffix}.csv`);
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();
