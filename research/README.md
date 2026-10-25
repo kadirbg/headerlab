@@ -18,6 +18,7 @@ else here is research-only and is not deployed.
 | `scanner/scan.ts` | Bulk scanner: raw redirect chains and headers → `scan.jsonl` |
 | `scanner/classify.ts` | `scan.jsonl` → `main.csv` / `sub.csv`, coded with criteria set v1 |
 | `scanner/seal.ts` | RFC 3161 timestamp for `scan.jsonl` (no openssl needed) |
+| `analysis/analyze.py` | Rates with Wilson intervals, sector tests, comparison with 2016 (Python; `analysis/requirements.txt`) |
 | `data/`, `output/` | Site lists, raw scans and results. **Git-ignored; never committed** |
 
 ## Criteria version
@@ -105,6 +106,16 @@ openssl ts -verify -data scan.jsonl -in scan.tsr -CAfile cacert.pem -untrusted t
 ```
 
 Keep `scan.jsonl`, `scan.tsq`, `scan.tsr` and `manifest.json` together.
+
+## Analysis
+
+```sh
+pip install -r research/analysis/requirements.txt
+python3 research/analysis/analyze.py --main <main-merged.csv> --sub <sub-merged.csv> --out <dir>
+```
+
+Writes CSV tables and a summary (`ozet.md`). The Monte Carlo p-values use a
+fixed seed, so reruns give identical output.
 
 ## Comparison with 2016
 
