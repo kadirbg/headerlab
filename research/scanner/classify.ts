@@ -64,7 +64,17 @@ export function evaluatePage(page: ScanRecord, httpsChain: ScanRecord | undefine
   return evaluateHeadersV1({ url: page.finalUrl!, headers, metaCsp: page.metaCsp.filter(m => !m.reportOnly).map(m => m.value) });
 }
 
-export const codePage = (page: ScanRecord, httpsChain: ScanRecord | undefined): Row => flat(evaluatePage(page, httpsChain));
+/**
+ * Sensitivity variables (not criteria set v1): HSTS read from the final
+ * response, as MDN HTTP Observatory does, instead of the first HTTPS response.
+ */
+function hstsFinal(page: ScanRecord): Row {
+  const last = page.hops[page.hops.length - 1];
+  const r = evaluateHeadersV1({ url: page.finalUrl!, headers: headerMap(last.headers) });
+  return { hsts_son_var: r.hsts_var, hsts_son_dogru: r.hsts_dogru, hsts_son_guclu: r.hsts_guclu };
+}
+
+export const codePage = (page: ScanRecord, httpsChain: ScanRecord | undefined): Row => ({ ...flat(evaluatePage(page, httpsChain)), ...hstsFinal(page) });
 
 export interface MainSelection {
   mainHost: string;

@@ -243,6 +243,24 @@ def main() -> None:
            '(2016\'nın 1 274 alt alan paydasına karşılık), `tum_https` = bunlardan HTTPS sunanlar. '
            '"yaklaşık" işaretli 2016 sayıları yayımlanan yüzdeden geri hesaplanmıştır.', '']
 
+    # 6. Sensitivity: HSTS read from the final response (MDN Observatory's rule)
+    if 'hsts_son_var' in ana.columns:
+        sens = []
+        for base, alt_col, label in (('hsts_var', 'hsts_son_var', 'HSTS var'), ('hsts_dogru', 'hsts_son_dogru', 'HSTS doğru (≥6 ay)'), ('hsts_guclu', 'hsts_son_guclu', 'HSTS güçlü')):
+            for layer_name, d in (('ana', ana), ('alt_alan', alt)):
+                x = to_bool(d[base]).fillna(False).to_numpy(bool)
+                y = to_bool(d[alt_col]).fillna(False).to_numpy(bool)
+                b, c = int((x & ~y).sum()), int((~x & y).sum())
+                p = stats.binomtest(min(b, c), b + c, 0.5).pvalue if b + c else 1.0
+                sens.append({'olcu': label, 'katman': layer_name, 'n': len(d), 'v1_ilk_https_yanit': fmt_pct(int(x.sum()), len(d)),
+                             'son_yanit': fmt_pct(int(y.sum()), len(d)), 'yalniz_v1': b, 'yalniz_son': c, 'p_mcnemar_kesin': p})
+        sdf = pd.DataFrame(sens)
+        sdf.to_csv(a.out / 'duyarlilik_hsts.csv', index=False, encoding='utf-8-sig')
+        md += ['## 6. Duyarlılık: HSTS\'nin okunduğu yanıt', '',
+               'v1, HSTS\'yi `https://<alan>/` isteğinin ilk HTTPS yanıtından okur (kullanıcının alan adını yazdığı ilk bağlantı). '
+               'MDN HTTP Observatory son yanıtı kullanır. Aynı siteler iki tanımla kodlandı; fark kesin McNemar testiyle sınandı.', '',
+               sdf.assign(p_mcnemar_kesin=sdf['p_mcnemar_kesin'].map(lambda x: '<0.0001' if x < 0.0001 else f'{x:.4f}')).to_markdown(index=False), '']
+
     (a.out / 'ozet.md').write_text('\n'.join(md), encoding='utf-8')
     print(f'wrote {a.out}/ozet.md and tables; main ok {len(ana)}, sub ok {len(alt)}')
 
