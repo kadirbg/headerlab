@@ -52,7 +52,7 @@ function flat(h: HeaderResult): Row {
  * When the https:// chain did not load (e.g. a bot challenge), the first HTTPS
  * response of the page's own chain is used, never the challenge response.
  */
-export function codePage(page: ScanRecord, httpsChain: ScanRecord | undefined): Row {
+export function evaluatePage(page: ScanRecord, httpsChain: ScanRecord | undefined): HeaderResult {
   const last = page.hops[page.hops.length - 1];
   const headers = headerMap(last.headers);
   const firstHttps = httpsChain?.hops.find(h => h.url.startsWith('https:') && h.status !== null);
@@ -61,8 +61,31 @@ export function codePage(page: ScanRecord, httpsChain: ScanRecord | undefined): 
     if (hsts) headers['strict-transport-security'] = hsts;
     else delete headers['strict-transport-security'];
   }
-  const result = evaluateHeadersV1({ url: page.finalUrl!, headers, metaCsp: page.metaCsp.filter(m => !m.reportOnly).map(m => m.value) });
-  return flat(result);
+  return evaluateHeadersV1({ url: page.finalUrl!, headers, metaCsp: page.metaCsp.filter(m => !m.reportOnly).map(m => m.value) });
+}
+
+export const codePage = (page: ScanRecord, httpsChain: ScanRecord | undefined): Row => flat(evaluatePage(page, httpsChain));
+
+export interface MainSelection {
+  mainHost: string;
+  http: ScanRecord | undefined;
+  https: ScanRecord | undefined;
+  filtered: boolean;
+  /** The page that is coded, or undefined when the site was not reached. */
+  page: ScanRecord | undefined;
+  /** The chain HSTS is read from. */
+  hstsChain: ScanRecord | undefined;
+}
+
+/** Picks the records of a site's main layer that classification uses (C6, C8). */
+export function selectMain(recs: ScanRecord[], domain: string, filterIps: Set<string>): MainSelection {
+  // C6: www.<domain> records exist only when the bare domain did not answer.
+  const mainHost = recs.some(r => r.layer === 'main' && r.host === `www.${domain}`) ? `www.${domain}` : domain;
+  const http = recs.find(r => r.layer === 'main' && r.scheme === 'http' && r.host === mainHost);
+  const https = recs.find(r => r.layer === 'main' && r.scheme === 'https' && r.host === mainHost);
+  const filtered = ispFiltered(recs.filter(r => r.layer === 'main'), filterIps);
+  const page = filtered ? undefined : reached(https) ? https : reached(http) ? http : undefined;
+  return { mainHost, http, https, filtered, page, hstsChain: page && (reached(https) ? https : page) };
 }
 
 /** Final statuses that mean the scanner was refused rather than the page missing (C3). */
@@ -134,12 +157,7 @@ export function classify(records: ScanRecord[], sample: Map<string, Record<strin
   for (const [domain, recs] of byDomain) {
     const meta = sample.get(domain) ?? {};
     const base = { alan_adi: domain, kaynak: meta.kaynak ?? '', sektor: meta.sektor ?? '', alt_sektor: meta.alt_sektor ?? '', olcum: recs[0].run };
-    // C6: www.<domain> records exist only when the bare domain did not answer.
-    const mainHost = recs.some(r => r.layer === 'main' && r.host === `www.${domain}`) ? `www.${domain}` : domain;
-    const http = recs.find(r => r.layer === 'main' && r.scheme === 'http' && r.host === mainHost);
-    const https = recs.find(r => r.layer === 'main' && r.scheme === 'https' && r.host === mainHost);
-    const filtered = ispFiltered(recs.filter(r => r.layer === 'main'), filterIps);
-    const page = filtered ? undefined : reached(https) ? https : reached(http) ? http : undefined;
+    const { mainHost, http, https, filtered, page, hstsChain } = selectMain(recs, domain, filterIps);
 
     const common = {
       ...base,
@@ -156,7 +174,7 @@ export function classify(records: ScanRecord[], sample: Map<string, Record<strin
       main.push({ ...common, erisim: filtered ? 'iss_filtresi' : accessClass([http, https]), alan_disi: false, son_url: https?.finalUrl ?? http?.finalUrl ?? '', son_durum: https?.finalStatus ?? http?.finalStatus ?? '', hata: https?.error ?? http?.error ?? `HTTP ${https?.finalStatus ?? http?.finalStatus}` });
       continue;
     }
-    main.push({ ...common, erisim: 'ok', alan_disi: outsideDomain(page.finalUrl, domain), son_url: page.finalUrl, son_durum: page.finalStatus, hata: '', ...codePage(page, reached(https) ? https : page) });
+    main.push({ ...common, erisim: 'ok', alan_disi: outsideDomain(page.finalUrl, domain), son_url: page.finalUrl, son_durum: page.finalStatus, hata: '', ...codePage(page, hstsChain) });
 
     for (const host of new Set(recs.filter(r => r.layer === 'sub').map(r => r.host))) {
       const sh = recs.find(r => r.layer === 'sub' && r.host === host && r.scheme === 'https');

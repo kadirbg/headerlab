@@ -18,6 +18,7 @@ else here is research-only and is not deployed.
 | `scanner/scan.ts` | Bulk scanner: raw redirect chains and headers → `scan.jsonl` |
 | `scanner/classify.ts` | `scan.jsonl` → `main.csv` / `sub.csv`, coded with criteria set v1 |
 | `scanner/seal.ts` | RFC 3161 timestamp for `scan.jsonl` (no openssl needed) |
+| `validation/` | Comparison with MDN HTTP Observatory and Google CSP Evaluator (own `package.json`) |
 | `analysis/analyze.py` | Rates with Wilson intervals, sector tests, comparison with 2016 (Python; `analysis/requirements.txt`) |
 | `data/`, `output/` | Site lists, raw scans and results. **Git-ignored; never committed** |
 
@@ -116,6 +117,23 @@ python3 research/analysis/analyze.py --main <main-merged.csv> --sub <sub-merged.
 
 Writes CSV tables and a summary (`ozet.md`). The Monte Carlo p-values use a
 fixed seed, so reruns give identical output.
+
+## Validation
+
+The classification is compared with two independent tools (`research/validation`,
+own dependencies: `npm install` there; Node.js 24+):
+
+- **Google CSP Evaluator**, offline on every enforced policy in the raw data:
+  `csp-evaluator.ts` maps the error flags to Evaluator findings and reports
+  agreement and Cohen's kappa.
+- **MDN HTTP Observatory**, on a validation sample scanned at the same time as
+  the research scanner from the same connection: `observatory.ts` runs the
+  Observatory's open-source scanner for each host and stores its JSON output.
+
+```sh
+node --experimental-strip-types research/validation/csp-evaluator.ts --out <output dir> --run ana-1 --merge ana-1b,ana-1c --dest <dir>
+node --experimental-strip-types research/validation/observatory.ts --hosts list.txt --dest <run dir> --ua "<User-Agent>"
+```
 
 ## Comparison with 2016
 
