@@ -87,7 +87,7 @@ function main() {
     if (row.csp_sinif !== csp.cls) throw new Error(`class mismatch for ${domain}`);
     const decided = csp.policies.filter(p => !p.reportOnly).find(p => p.cls === csp.cls)!;
     const ev = evaluatorFlags(decided.raw);
-    const v1 = new Set(decided.flags.map(f => (f === 'H2' || f === 'H3' ? 'H2H3' : f)));
+    const v1 = new Set<string>(decided.flags.map(f => (f === 'H2' || f === 'H3' ? 'H2H3' : f)));
     for (const k of ['H1', 'H2H3', 'H4', 'H5', 'H6', 'H7', 'H9']) add(k, v1.has(k), ev.flags.has(k));
     if (!v1.has('H9')) add('H5_kosullu', v1.has('H5'), ev.flags.has('H5'));
     if (/'nonce-|'sha(256|384|512)-/.test(decided.raw)) add('H6_kosullu', v1.has('H6'), ev.flags.has('H6'));

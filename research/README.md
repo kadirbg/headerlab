@@ -115,7 +115,10 @@ pip install -r research/analysis/requirements.txt
 python3 research/analysis/analyze.py --main <main-merged.csv> --sub <sub-merged.csv> --out <dir>
 ```
 
-Writes CSV tables and a summary (`ozet.md`). The Monte Carlo p-values use a
+Writes CSV tables and a summary (`ozet.md`). A sensitivity section repeats the
+HSTS measures with HSTS read from the final response (MDN HTTP Observatory's
+rule; columns `hsts_son_*`, not part of criteria set v1) and tests the paired
+difference with an exact McNemar test. The Monte Carlo p-values use a
 fixed seed, so reruns give identical output.
 
 ## Validation
