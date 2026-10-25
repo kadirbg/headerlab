@@ -44,6 +44,8 @@ function flat(h: HeaderResult): Row {
 /**
  * Codes one reached page. HSTS comes from the first HTTPS response of the
  * https:// chain (v1, section A); every other header from the final response.
+ * When the https:// chain did not load (e.g. a bot challenge), the first HTTPS
+ * response of the page's own chain is used, never the challenge response.
  */
 export function codePage(page: ScanRecord, httpsChain: ScanRecord | undefined): Row {
   const last = page.hops[page.hops.length - 1];
@@ -107,7 +109,9 @@ export function classify(records: ScanRecord[], sample: Map<string, Record<strin
 
     const common = {
       ...base,
-      https_erisilir: reached(https),
+      // HTTPS works if https:// loaded, or the http:// chain ended on an HTTPS page
+      // (a bot challenge on one request must not count as "no HTTPS").
+      https_erisilir: reached(https) || (!!page && page.finalUrl!.startsWith('https:')),
       http_https_yonlenir: !!http?.finalUrl?.startsWith('https:') && reached(http),
       tls_dogrulanmadi: tlsUnverified([http, https].filter(Boolean) as ScanRecord[]),
       alt_alan_sayisi: (page?.selectedSubdomains ?? []).length,
@@ -117,7 +121,7 @@ export function classify(records: ScanRecord[], sample: Map<string, Record<strin
       main.push({ ...common, erisim: accessClass([http, https]), alan_disi: false, son_url: https?.finalUrl ?? http?.finalUrl ?? '', son_durum: https?.finalStatus ?? http?.finalStatus ?? '', hata: https?.error ?? http?.error ?? `HTTP ${https?.finalStatus ?? http?.finalStatus}` });
       continue;
     }
-    main.push({ ...common, erisim: 'ok', alan_disi: outsideDomain(page.finalUrl, domain), son_url: page.finalUrl, son_durum: page.finalStatus, hata: '', ...codePage(page, https) });
+    main.push({ ...common, erisim: 'ok', alan_disi: outsideDomain(page.finalUrl, domain), son_url: page.finalUrl, son_durum: page.finalStatus, hata: '', ...codePage(page, reached(https) ? https : page) });
 
     for (const host of new Set(recs.filter(r => r.layer === 'sub').map(r => r.host))) {
       const sh = recs.find(r => r.layer === 'sub' && r.host === host && r.scheme === 'https');
@@ -125,7 +129,7 @@ export function classify(records: ScanRecord[], sample: Map<string, Record<strin
       const p = reached(sh) ? sh : reached(sp) ? sp : undefined;
       const sbase = { ...base, alt_alan: host, tls_dogrulanmadi: tlsUnverified([sh, sp].filter(Boolean) as ScanRecord[]) };
       if (!p) sub.push({ ...sbase, erisim: accessClass([sh, sp]), alan_disi: false, son_url: sh?.finalUrl ?? sp?.finalUrl ?? '', son_durum: sh?.finalStatus ?? sp?.finalStatus ?? '', hata: sh?.error ?? sp?.error ?? `HTTP ${sh?.finalStatus ?? sp?.finalStatus}` });
-      else sub.push({ ...sbase, erisim: 'ok', alan_disi: outsideDomain(p.finalUrl, domain), son_url: p.finalUrl, son_durum: p.finalStatus, hata: '', ...codePage(p, sh) });
+      else sub.push({ ...sbase, erisim: 'ok', alan_disi: outsideDomain(p.finalUrl, domain), son_url: p.finalUrl, son_durum: p.finalStatus, hata: '', ...codePage(p, reached(sh) ? sh : p) });
     }
   }
   return { main, sub };

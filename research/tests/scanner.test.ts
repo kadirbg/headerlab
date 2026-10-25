@@ -275,3 +275,14 @@ test('classify: a subdomain redirecting to another domain is flagged (C4)', () =
   assert.equal(outsideDomain('https://www.ornek.com.tr/x', 'ornek.com.tr'), false);
   assert.equal(outsideDomain('https://ornek.com/', 'ornek.com.tr'), true);
 });
+
+test('classify: challenge on https:// does not supply HSTS or hide HTTPS', () => {
+  const recs = [
+    rec({ scheme: 'http', hops: [hop('http://ornek.com.tr/', 301), hop('https://www.ornek.com.tr/', 200, [['Strict-Transport-Security', 'max-age=31536000']])], finalUrl: 'https://www.ornek.com.tr/', finalStatus: 200 }),
+    rec({ scheme: 'https', hops: [hop('https://ornek.com.tr/', 403, [['cf-mitigated', 'challenge'], ['Strict-Transport-Security', 'max-age=60']])], finalUrl: 'https://ornek.com.tr/', finalStatus: 403 }),
+  ];
+  const r = classify(recs, new Map()).main[0];
+  assert.equal(r.erisim, 'ok');
+  assert.equal(r.https_erisilir, true);
+  assert.equal(r.hsts_max_age, 31536000);
+});
