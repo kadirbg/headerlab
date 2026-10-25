@@ -128,11 +128,14 @@ own dependencies: `npm install` there; Node.js 24+):
   agreement and Cohen's kappa.
 - **MDN HTTP Observatory**, on a validation sample scanned at the same time as
   the research scanner from the same connection: `observatory.ts` runs the
-  Observatory's open-source scanner for each host and stores its JSON output.
+  Observatory's open-source scanner for each host and stores its JSON output;
+  `compare_observatory.py` reports agreement, Cohen's kappa and every
+  disagreeing site.
 
 ```sh
 node --experimental-strip-types research/validation/csp-evaluator.ts --out <output dir> --run ana-1 --merge ana-1b,ana-1c --dest <dir>
 node --experimental-strip-types research/validation/observatory.ts --hosts list.txt --dest <run dir> --ua "<User-Agent>"
+python3 research/validation/compare_observatory.py --run-dir <run dir> --dest <dir>
 ```
 
 ## Comparison with 2016
