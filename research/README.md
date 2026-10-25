@@ -38,6 +38,10 @@ The study reports these rule-based classes, **not** HeaderLab's A–F grade.
 | 2026-10-25 | C3: access classes `ok` / `engellendi` (400, 403, 406, 429 or a bot challenge) / `ulasilamadi` (no response) / `hata`; only `ok` pages are coded, protection is never bypassed | Pilot: bot challenges answered with the protection service's own headers |
 | 2026-10-25 | C4: `alan_disi` flags a page whose final URL is outside the site's registrable domain; such subdomains are left out of subdomain-layer rates | Pilot: a subdomain redirected to another domain |
 | 2026-10-25 | C5: after the main run, sites whose main access was not `ok`, that had a network-level error on a subdomain, or that were redirected to an ISP filter page are measured once more (`--only-file`); the second measurement is final (`classify --merge`) | Main run: resolver failures for about 10 minutes |
+| 2026-10-25 | C6: if the bare domain gives no HTTP response on either scheme, `www.<domain>` is measured instead (`www_yedek`) | Some sites have no DNS record for the bare domain; the sample came from CrUX origins, which carry `www` |
+| 2026-10-25 | C7: cookies set during a redirect chain are sent on the following requests of that chain (Domain, Secure honoured; nothing kept between chains) | DDoS protections set a cookie and redirect to the same URL; without it the chain loops |
+| 2026-10-25 | C8: access class `iss_filtresi` when the ISP answered with its filter page, or a request connected to the address that served it; not coded | Main run: the scanning line's ISP filters some sites |
+| 2026-10-25 | Sites whose result could change under C6–C8 are measured once more (`ana-1c`), merged after `ana-1b` | Apply C6–C8 to the affected sites only |
 | 2026-10-25 | Scanner sends Chrome's navigation request headers (`Sec-Fetch-*`, `Upgrade-Insecure-Requests`); the User-Agent still names the scanner | Measure what a visitor receives |
 
 ## Running the tests
@@ -74,7 +78,7 @@ the main run with the new one merged in; each row's `olcum` column names its run
 
 ```sh
 npm run scan -- --run ana-1b --only-file research/data/tekrar_ana-1.txt
-npm run classify -- --run ana-1 --merge ana-1b    # → main-merged.csv, sub-merged.csv
+npm run classify -- --run ana-1 --merge ana-1b,ana-1c   # later runs win → main-merged.csv, sub-merged.csv
 ```
 
 Behaviour is described publicly at <https://headerlab.dev/research>.

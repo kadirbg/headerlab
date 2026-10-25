@@ -74,9 +74,34 @@ const BLOCK_STATUSES = new Set([400, 403, 406, 429]);
  *   engellendi  refused: 400/403/406/429, or a bot challenge (cf-mitigated)
  *   ulasilamadi no HTTP response at all (DNS, connection, timeout)
  *   hata        any other outcome (404, 5xx, redirect loop, …)
+ * classify() adds iss_filtresi (C8) before these: the ISP served a filter page.
  * Pages that are not "ok" are never coded: a challenge page carries the
  * protection service's headers, not the site's.
  */
+/** Pages an ISP shows instead of a filtered site (C8). */
+export const ISP_FILTER_HOSTS = new Set(['guvenliinternet.turktelekom.com.tr']);
+
+const hostOf = (u: string) => { try { return new URL(u).hostname.toLowerCase(); } catch { return ''; } };
+
+/**
+ * Addresses of ISP filter servers, learned from the data: a hop that redirected
+ * to a filter page was answered by the filter, so every hop that connected to
+ * the same address was filtered too (also when TLS then failed).
+ */
+export function filterAddresses(records: ScanRecord[]): Set<string> {
+  const ips = new Set<string>();
+  for (const r of records) {
+    for (const h of r.hops) {
+      const loc = h.headers.find(([k]) => k.toLowerCase() === 'location')?.[1];
+      if (h.ip && loc && ISP_FILTER_HOSTS.has(hostOf(new URL(loc, h.url).toString()))) ips.add(h.ip);
+    }
+  }
+  return ips;
+}
+
+export const ispFiltered = (recs: (ScanRecord | undefined)[], ips: Set<string>) =>
+  recs.some(r => r?.hops.some(h => ISP_FILTER_HOSTS.has(hostOf(h.url)) || (!!h.ip && ips.has(h.ip))));
+
 export function accessClass(recs: (ScanRecord | undefined)[]): 'ok' | 'engellendi' | 'ulasilamadi' | 'hata' {
   const rs = recs.filter((r): r is ScanRecord => !!r);
   if (rs.some(reached)) return 'ok';
@@ -104,13 +129,17 @@ export function classify(records: ScanRecord[], sample: Map<string, Record<strin
 
   const main: Row[] = [];
   const sub: Row[] = [];
+  const filterIps = filterAddresses(records);
 
   for (const [domain, recs] of byDomain) {
     const meta = sample.get(domain) ?? {};
     const base = { alan_adi: domain, kaynak: meta.kaynak ?? '', sektor: meta.sektor ?? '', alt_sektor: meta.alt_sektor ?? '', olcum: recs[0].run };
-    const http = recs.find(r => r.layer === 'main' && r.scheme === 'http');
-    const https = recs.find(r => r.layer === 'main' && r.scheme === 'https');
-    const page = reached(https) ? https : reached(http) ? http : undefined;
+    // C6: www.<domain> records exist only when the bare domain did not answer.
+    const mainHost = recs.some(r => r.layer === 'main' && r.host === `www.${domain}`) ? `www.${domain}` : domain;
+    const http = recs.find(r => r.layer === 'main' && r.scheme === 'http' && r.host === mainHost);
+    const https = recs.find(r => r.layer === 'main' && r.scheme === 'https' && r.host === mainHost);
+    const filtered = ispFiltered(recs.filter(r => r.layer === 'main'), filterIps);
+    const page = filtered ? undefined : reached(https) ? https : reached(http) ? http : undefined;
 
     const common = {
       ...base,
@@ -120,10 +149,11 @@ export function classify(records: ScanRecord[], sample: Map<string, Record<strin
       http_https_yonlenir: !!http?.finalUrl?.startsWith('https:') && reached(http),
       tls_dogrulanmadi: tlsUnverified([http, https].filter(Boolean) as ScanRecord[]),
       alt_alan_sayisi: (page?.selectedSubdomains ?? []).length,
+      www_yedek: mainHost !== domain,
     };
 
     if (!page) {
-      main.push({ ...common, erisim: accessClass([http, https]), alan_disi: false, son_url: https?.finalUrl ?? http?.finalUrl ?? '', son_durum: https?.finalStatus ?? http?.finalStatus ?? '', hata: https?.error ?? http?.error ?? `HTTP ${https?.finalStatus ?? http?.finalStatus}` });
+      main.push({ ...common, erisim: filtered ? 'iss_filtresi' : accessClass([http, https]), alan_disi: false, son_url: https?.finalUrl ?? http?.finalUrl ?? '', son_durum: https?.finalStatus ?? http?.finalStatus ?? '', hata: https?.error ?? http?.error ?? `HTTP ${https?.finalStatus ?? http?.finalStatus}` });
       continue;
     }
     main.push({ ...common, erisim: 'ok', alan_disi: outsideDomain(page.finalUrl, domain), son_url: page.finalUrl, son_durum: page.finalStatus, hata: '', ...codePage(page, reached(https) ? https : page) });
@@ -131,9 +161,10 @@ export function classify(records: ScanRecord[], sample: Map<string, Record<strin
     for (const host of new Set(recs.filter(r => r.layer === 'sub').map(r => r.host))) {
       const sh = recs.find(r => r.layer === 'sub' && r.host === host && r.scheme === 'https');
       const sp = recs.find(r => r.layer === 'sub' && r.host === host && r.scheme === 'http');
-      const p = reached(sh) ? sh : reached(sp) ? sp : undefined;
+      const sf = ispFiltered([sh, sp], filterIps);
+      const p = sf ? undefined : reached(sh) ? sh : reached(sp) ? sp : undefined;
       const sbase = { ...base, alt_alan: host, tls_dogrulanmadi: tlsUnverified([sh, sp].filter(Boolean) as ScanRecord[]) };
-      if (!p) sub.push({ ...sbase, erisim: accessClass([sh, sp]), alan_disi: false, son_url: sh?.finalUrl ?? sp?.finalUrl ?? '', son_durum: sh?.finalStatus ?? sp?.finalStatus ?? '', hata: sh?.error ?? sp?.error ?? `HTTP ${sh?.finalStatus ?? sp?.finalStatus}` });
+      if (!p) sub.push({ ...sbase, erisim: sf ? 'iss_filtresi' : accessClass([sh, sp]), alan_disi: false, son_url: sh?.finalUrl ?? sp?.finalUrl ?? '', son_durum: sh?.finalStatus ?? sp?.finalStatus ?? '', hata: sh?.error ?? sp?.error ?? `HTTP ${sh?.finalStatus ?? sp?.finalStatus}` });
       else sub.push({ ...sbase, erisim: 'ok', alan_disi: outsideDomain(p.finalUrl, domain), son_url: p.finalUrl, son_durum: p.finalStatus, hata: '', ...codePage(p, reached(sh) ? sh : p) });
     }
   }
@@ -179,7 +210,7 @@ function main() {
   fs.writeFileSync(path.join(dir, `sub${suffix}.csv`), toCsv(sub, columnsOf(sub)));
   for (const run of extra) console.log(`merged ${run}: ${main.filter(r => r.olcum === run).length} sites taken from it`);
 
-  const count = (rows: Row[]) => ['ok', 'engellendi', 'ulasilamadi', 'hata'].map(k => `${k} ${rows.filter(r => r.erisim === k).length}`).join(', ');
+  const count = (rows: Row[]) => ['ok', 'engellendi', 'iss_filtresi', 'ulasilamadi', 'hata'].map(k => `${k} ${rows.filter(r => r.erisim === k).length}`).join(', ');
   console.log(`criteria ${CRITERIA_VERSION}: ${main.length} sites (${count(main)}), ${sub.filter(r => r.alan_disi).length ? `${sub.filter(r => r.alan_disi).length} outside domain, ` : ''}${sub.length} subdomains (${count(sub)})`);
   console.log(`wrote ${path.join(dir, `main${suffix}.csv`)} and sub${suffix}.csv`);
 }

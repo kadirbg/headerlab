@@ -5,6 +5,7 @@
 //   2. the redirect chain of https://<domain>/
 //   3. CSP <meta> tags of the main page and the hosts it links to
 //   4. the chains of up to N linked subdomains (secondary layer, rule K1)
+// If the bare domain answers on neither scheme, www.<domain> is tried (C6).
 // Every chain becomes one JSON line in scan.jsonl. Classification is a separate
 // step (classify.ts) so the raw data can be re-analysed without re-scanning.
 //
@@ -93,15 +94,31 @@ export async function scanSite(domain: string, cfg: ScanConfig): Promise<ScanRec
   const chain = (url: string) => fetchChain(url, cfg.fetch, cfg.maxRedirects);
 
   let t = iso();
-  const viaHttp = await chain(`http://${domain}/`);
-  const httpRec = record(cfg, domain, 'main', domain, 'http', t, viaHttp);
+  let viaHttp = await chain(`http://${domain}/`);
+  let httpRec = record(cfg, domain, 'main', domain, 'http', t, viaHttp);
   out.push(httpRec);
 
   await sleep(cfg.gapMs);
   t = iso();
-  const viaHttps = await chain(`https://${domain}/`);
-  const httpsRec = record(cfg, domain, 'main', domain, 'https', t, viaHttps);
+  let viaHttps = await chain(`https://${domain}/`);
+  let httpsRec = record(cfg, domain, 'main', domain, 'https', t, viaHttps);
   out.push(httpsRec);
+
+  // C6: if the bare domain gave no HTTP response on either scheme, try www.
+  const silent = (c: ChainResult) => c.hops.every(h => h.status === null);
+  if (silent(viaHttp) && silent(viaHttps) && !domain.startsWith('www.')) {
+    const www = `www.${domain}`;
+    await sleep(cfg.gapMs);
+    t = iso();
+    viaHttp = await chain(`http://${www}/`);
+    httpRec = record(cfg, domain, 'main', www, 'http', t, viaHttp);
+    out.push(httpRec);
+    await sleep(cfg.gapMs);
+    t = iso();
+    viaHttps = await chain(`https://${www}/`);
+    httpsRec = record(cfg, domain, 'main', www, 'https', t, viaHttps);
+    out.push(httpsRec);
+  }
 
   // The page used for links: the https result if it loaded, else the http one.
   const [page, pageRec] = ok(viaHttps) ? [viaHttps, httpsRec] : [viaHttp, httpRec];

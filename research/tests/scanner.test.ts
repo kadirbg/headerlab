@@ -12,7 +12,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import type { AddressInfo } from 'node:net';
-import { fetchChain, decodeBody, type FetchOptions } from '../scanner/http.ts';
+import { fetchChain, decodeBody, CookieJar, type FetchOptions } from '../scanner/http.ts';
 import { extractMetaCsp, extractLinkHosts, selectSubdomains, parseAttributes } from '../scanner/html.ts';
 import { parseCsv, toCsv } from '../scanner/csv.ts';
 import { accessClass, outsideDomain, mergeRuns, classify } from '../scanner/classify.ts';
@@ -295,4 +295,60 @@ test('mergeRuns: a later run replaces all records of the domains it contains', (
   assert.equal(m.filter(r => r.domain === 'y.com').length, 1);
   const rows = classify(m, new Map()).main;
   assert.equal(rows.find(r => r.alan_adi === 'x.com')!.olcum, 'b');
+});
+
+// ---------- C6, C7, C8 ----------
+
+test('cookie jar: host-only, Domain, Secure and expiry (C7)', () => {
+  const j = new CookieJar();
+  j.store('https://a.ornek.com.tr/', ['h=1; Path=/', 'd=2; Domain=.ornek.com.tr; Secure', 'x=3; Domain=baska.com', 'h2=4']);
+  assert.equal(j.header('https://a.ornek.com.tr/'), 'h=1; d=2; h2=4');
+  assert.equal(j.header('https://b.ornek.com.tr/'), 'd=2');
+  assert.equal(j.header('http://b.ornek.com.tr/'), null, 'Secure cookie not sent over http');
+  j.store('https://a.ornek.com.tr/', ['h2=; Max-Age=0']);
+  assert.equal(j.header('https://a.ornek.com.tr/'), 'h=1; d=2');
+});
+
+test('fetchChain keeps cookies within a chain: set-cookie + redirect to self resolves (C7)', async () => {
+  const srv = http.createServer((q, s) => {
+    if ((q.headers.cookie ?? '').includes('Ref=ok')) { s.writeHead(200, { 'Content-Type': 'text/html' }); s.end('<html></html>'); }
+    else { s.writeHead(302, { 'Set-Cookie': 'Ref=ok; Path=/; HttpOnly', Location: '/' }); s.end(); }
+  });
+  await new Promise<void>(r => srv.listen(0, '127.0.0.1', r));
+  try {
+    const c = await fetchChain(`http://127.0.0.1:${(srv.address() as AddressInfo).port}/`, opts);
+    assert.equal(c.error, null);
+    assert.equal(c.finalStatus, 200);
+    assert.equal(c.hops.length, 2);
+    assert.deepEqual(c.hops[1].sentCookies, ['Ref']);
+    assert.equal(c.hops[0].ip, '127.0.0.1');
+  } finally {
+    srv.close();
+  }
+});
+
+test('classify: www records replace a silent bare domain (C6)', () => {
+  const silent = (scheme: 'http' | 'https') => rec({ scheme, error: 'ENOTFOUND', hops: [{ ...hop(`${scheme}://ornek.com.tr/`, 0), status: null, error: 'ENOTFOUND' }] as never });
+  const recs = [
+    silent('http'), silent('https'),
+    rec({ host: 'www.ornek.com.tr', scheme: 'http', hops: [hop('http://www.ornek.com.tr/', 301), hop('https://www.ornek.com.tr/', 200)], finalUrl: 'https://www.ornek.com.tr/', finalStatus: 200 }),
+    rec({ host: 'www.ornek.com.tr', scheme: 'https', hops: [hop('https://www.ornek.com.tr/', 200, [['Strict-Transport-Security', 'max-age=31536000']])], finalUrl: 'https://www.ornek.com.tr/', finalStatus: 200 }),
+  ];
+  const r = classify(recs, new Map()).main[0];
+  assert.equal(r.erisim, 'ok');
+  assert.equal(r.www_yedek, true);
+  assert.equal(r.hsts_max_age, 31536000);
+});
+
+test('classify: ISP filter page, and TLS failure at the filter address, are iss_filtresi (C8)', () => {
+  const f = (domain: string, p: Partial<ScanRecord>) => rec({ domain, host: domain, ...p });
+  const recs = [
+    f('a.com', { scheme: 'http', hops: [{ ...hop('http://a.com/', 302, [['Location', 'https://guvenliinternet.turktelekom.com.tr/?host=a.com']]), ip: '195.175.254.2' }, hop('https://guvenliinternet.turktelekom.com.tr/?host=a.com', 200)], finalUrl: 'https://guvenliinternet.turktelekom.com.tr/?host=a.com', finalStatus: 200 }),
+    f('b.com', { scheme: 'https', error: 'EPROTO', hops: [{ ...hop('https://b.com/', 0), status: null, error: 'EPROTO', ip: '195.175.254.2' }] as never }),
+    f('c.com', { scheme: 'https', hops: [{ ...hop('https://c.com/', 200), ip: '93.184.216.34' }], finalUrl: 'https://c.com/', finalStatus: 200 }),
+  ];
+  const rows = classify(recs, new Map()).main;
+  assert.equal(rows.find(r => r.alan_adi === 'a.com')!.erisim, 'iss_filtresi');
+  assert.equal(rows.find(r => r.alan_adi === 'b.com')!.erisim, 'iss_filtresi');
+  assert.equal(rows.find(r => r.alan_adi === 'c.com')!.erisim, 'ok');
 });

@@ -52,6 +52,10 @@ export interface Hop {
   ms: number;
   error: string | null;
   attempts: number;
+  /** Address the host name resolved to (also when TLS or HTTP failed). */
+  ip?: string | null;
+  /** Names of the cookies sent with this request (set earlier in the same chain). */
+  sentCookies?: string[];
 }
 
 export interface BodyInfo {
@@ -94,6 +98,7 @@ const DNS_ERRORS = new Set(['ENOTFOUND', 'EAI_FAIL']);
 export const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
 
 interface RawResult {
+  ip: string | null;
   status: number | null;
   headers: [string, string][];
   tls: { protocol: string | null; cipher: string | null } | null;
@@ -114,17 +119,18 @@ const header = (h: [string, string][], name: string) =>
 
 const isHtml = (ct: string | null) => !ct || /text\/html|application\/xhtml\+xml/i.test(ct);
 
-function requestOnce(url: string, opts: FetchOptions, verifyTls: boolean, readBody: boolean): Promise<RawResult> {
+function requestOnce(url: string, opts: FetchOptions, verifyTls: boolean, readBody: boolean, cookie: string | null): Promise<RawResult> {
   return new Promise(resolve => {
     const started = Date.now();
     const u = new URL(url);
     const lib = u.protocol === 'https:' ? https : http;
     let settled = false;
-    const done = (r: Omit<RawResult, 'ms'>) => {
+    let ip: string | null = null;
+    const done = (r: Omit<RawResult, 'ms' | 'ip'>) => {
       if (settled) return;
       settled = true;
       clearTimeout(deadline);
-      resolve({ ...r, ms: Date.now() - started });
+      resolve({ ...r, ip, ms: Date.now() - started });
     };
 
     const req = lib.request(u, {
@@ -132,7 +138,12 @@ function requestOnce(url: string, opts: FetchOptions, verifyTls: boolean, readBo
       agent: false,
       rejectUnauthorized: verifyTls,
       servername: u.hostname,
-      headers: { ...REQUEST_HEADERS, 'User-Agent': opts.userAgent },
+      headers: { ...REQUEST_HEADERS, 'User-Agent': opts.userAgent, ...(cookie ? { Cookie: cookie } : {}) },
+    });
+
+    req.on('socket', sock => {
+      sock.once('lookup', (_e: Error | null, address: string) => { ip = address ?? null; });
+      sock.once('connect', () => { ip ??= sock.remoteAddress ?? null; });
     });
 
     const deadline = setTimeout(() => {
@@ -206,7 +217,7 @@ export function decodeBody(body: Buffer, encoding: string | null): { text: strin
  *   with verification off, so the headers are still measured; the hop is then
  *   marked verified=false.
  */
-export async function fetchHop(url: string, opts: FetchOptions, readBody: boolean): Promise<{ hop: Hop; body: Buffer | null; truncated: boolean }> {
+export async function fetchHop(url: string, opts: FetchOptions, readBody: boolean, cookie: string | null = null): Promise<{ hop: Hop; body: Buffer | null; truncated: boolean }> {
   let attempts = 0;
   let verifyError: string | null = null;
   let verify = true;
@@ -214,7 +225,7 @@ export async function fetchHop(url: string, opts: FetchOptions, readBody: boolea
 
   for (;;) {
     attempts++;
-    r = await requestOnce(url, opts, verify, readBody);
+    r = await requestOnce(url, opts, verify, readBody, cookie);
     if (r.error && verify && TLS_VERIFY_ERRORS.has(r.error)) {
       verifyError = r.error;
       verify = false;
@@ -235,18 +246,71 @@ export async function fetchHop(url: string, opts: FetchOptions, readBody: boolea
     ms: r.ms,
     error: r.error,
     attempts,
+    ip: r.ip,
+    sentCookies: cookie ? cookie.split('; ').map(c => c.slice(0, c.indexOf('='))) : [],
   };
   return { hop, body: r.body, truncated: r.truncated };
 }
 
 /** Follows redirects one hop at a time (max `maxRedirects`), recording each hop. */
+/**
+ * Cookies kept for the length of one redirect chain, as a browser would (C7).
+ * Some DDoS protections set a cookie and redirect to the same URL; without the
+ * cookie the chain loops. Name, value, Domain and Secure are honoured; Path is
+ * ignored. Nothing is kept between chains.
+ */
+export class CookieJar {
+  private cookies: { name: string; value: string; domain: string; hostOnly: boolean; secure: boolean }[] = [];
+
+  store(url: string, setCookie: string[]): void {
+    const u = new URL(url);
+    const host = u.hostname.toLowerCase();
+    for (const line of setCookie) {
+      const [pair, ...attrs] = line.split(';');
+      const eq = pair.indexOf('=');
+      if (eq <= 0) continue;
+      const name = pair.slice(0, eq).trim();
+      const value = pair.slice(eq + 1).trim();
+      let domain = host;
+      let hostOnly = true;
+      let secure = false;
+      let expired = false;
+      for (const a of attrs) {
+        const [k, ...v] = a.split('=');
+        const key = k.trim().toLowerCase();
+        const val = v.join('=').trim();
+        if (key === 'domain' && val) {
+          const d = val.replace(/^\./, '').toLowerCase();
+          if (host !== d && !host.endsWith(`.${d}`)) { domain = ''; break; }
+          domain = d;
+          hostOnly = false;
+        } else if (key === 'secure') secure = true;
+        else if (key === 'max-age' && Number(val) <= 0) expired = true;
+      }
+      if (!domain) continue;
+      this.cookies = this.cookies.filter(c => !(c.name === name && c.domain === domain && c.hostOnly === hostOnly));
+      if (!expired) this.cookies.push({ name, value, domain, hostOnly, secure });
+    }
+  }
+
+  header(url: string): string | null {
+    const u = new URL(url);
+    const host = u.hostname.toLowerCase();
+    const list = this.cookies.filter(c =>
+      (c.hostOnly ? host === c.domain : host === c.domain || host.endsWith(`.${c.domain}`)) && (!c.secure || u.protocol === 'https:'));
+    return list.length ? list.map(c => `${c.name}=${c.value}`).join('; ') : null;
+  }
+}
+
 export async function fetchChain(startUrl: string, opts: FetchOptions, maxRedirects = 10): Promise<ChainResult> {
   const hops: Hop[] = [];
+  const jar = new CookieJar();
   let url = startUrl;
 
   for (let i = 0; i <= maxRedirects; i++) {
-    const { hop, body, truncated } = await fetchHop(url, opts, true);
+    const { hop, body, truncated } = await fetchHop(url, opts, true, jar.header(url));
     hops.push(hop);
+    jar.store(url, hop.headers.filter(([k]) => k.toLowerCase() === 'set-cookie').map(([, v]) => v));
 
     if (hop.error) return { startUrl, hops, finalUrl: url, finalStatus: null, error: hop.error, html: null, body: null };
 
