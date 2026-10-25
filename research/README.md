@@ -37,6 +37,7 @@ The study reports these rule-based classes, **not** HeaderLab's A–F grade.
 | 2026-10-19 | C2: a script policy of exactly `'none'` meets the "nonce or hash" condition of the *etkili* class | No script can run under it |
 | 2026-10-25 | C3: access classes `ok` / `engellendi` (400, 403, 406, 429 or a bot challenge) / `ulasilamadi` (no response) / `hata`; only `ok` pages are coded, protection is never bypassed | Pilot: bot challenges answered with the protection service's own headers |
 | 2026-10-25 | C4: `alan_disi` flags a page whose final URL is outside the site's registrable domain; such subdomains are left out of subdomain-layer rates | Pilot: a subdomain redirected to another domain |
+| 2026-10-25 | C5: after the main run, sites whose main access was not `ok`, that had a network-level error on a subdomain, or that were redirected to an ISP filter page are measured once more (`--only-file`); the second measurement is final (`classify --merge`) | Main run: resolver failures for about 10 minutes |
 | 2026-10-25 | Scanner sends Chrome's navigation request headers (`Sec-Fetch-*`, `Upgrade-Insecure-Requests`); the User-Agent still names the scanner | Measure what a visitor receives |
 
 ## Running the tests
@@ -62,11 +63,19 @@ npm run classify -- --run pilot-1
 - Output goes to `research/output/<run>/`: `scan.jsonl` (raw), `manifest.json`
   (parameters, tool commit, input and output hashes), `main.csv`, `sub.csv`.
 - Interrupted runs resume: run the same command again; finished sites are skipped.
-- `--only a.com.tr,b.com` scans selected sites; `--concurrency`, `--gap`,
+- `--only a.com.tr,b.com` or `--only-file list.txt` scans selected sites; `--concurrency`, `--gap`,
   `--timeout`, `--max-subdomains` change the defaults (4, 2000 ms, 15000 ms, 10).
 - Domains listed one per line in `research/data/opt-out.txt` are never scanned.
 - Set the Chrome version in `--ua` (or `DEFAULT_UA` in `scan.ts`) to the one
   installed on the scanning machine.
+
+Re-measurement (rule C5): scan the listed sites into a new run, then classify
+the main run with the new one merged in; each row's `olcum` column names its run.
+
+```sh
+npm run scan -- --run ana-1b --only-file research/data/tekrar_ana-1.txt
+npm run classify -- --run ana-1 --merge ana-1b    # → main-merged.csv, sub-merged.csv
+```
 
 Behaviour is described publicly at <https://headerlab.dev/research>.
 

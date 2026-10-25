@@ -88,6 +88,8 @@ const TLS_VERIFY_ERRORS = new Set([
 
 /** Transient network errors worth retrying. DNS "not found" is final. */
 const RETRYABLE = new Set(['ECONNRESET', 'ETIMEDOUT', 'TIMEOUT', 'EAI_AGAIN', 'EPIPE', 'ECONNABORTED', 'EHOSTUNREACH', 'ENETUNREACH']);
+/** Name lookup failures; home resolvers also report short outages this way, so they get longer waits. */
+const DNS_ERRORS = new Set(['ENOTFOUND', 'EAI_FAIL']);
 
 export const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
 
@@ -199,6 +201,7 @@ export function decodeBody(body: Buffer, encoding: string | null): { text: strin
 /**
  * One request with retries and the TLS fallback:
  * - transient network errors are retried (2 more attempts, 2 s then 4 s apart);
+ *   name lookup failures likewise, 5 s then 10 s apart;
  * - a certificate verification error is recorded and the request repeated once
  *   with verification off, so the headers are still measured; the hop is then
  *   marked verified=false.
@@ -217,8 +220,8 @@ export async function fetchHop(url: string, opts: FetchOptions, readBody: boolea
       verify = false;
       continue;
     }
-    if (r.error && RETRYABLE.has(r.error) && attempts < 3) {
-      await sleep(2000 * attempts);
+    if (r.error && (RETRYABLE.has(r.error) || DNS_ERRORS.has(r.error)) && attempts < 3) {
+      await sleep((DNS_ERRORS.has(r.error) ? 5000 : 2000) * attempts);
       continue;
     }
     break;
