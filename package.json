@@ -12,7 +12,8 @@
     "astro": "astro",
     "test:research": "node --experimental-strip-types --no-warnings --test research/tests/*.test.ts",
     "scan": "node --experimental-strip-types --no-warnings research/scanner/scan.ts",
-    "classify": "node --experimental-strip-types --no-warnings research/scanner/classify.ts"
+    "classify": "node --experimental-strip-types --no-warnings research/scanner/classify.ts",
+    "seal": "node --experimental-strip-types --no-warnings research/scanner/seal.ts"
   },
   "dependencies": {
     "@astrojs/cloudflare": "^14.0.0",

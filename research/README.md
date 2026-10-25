@@ -17,6 +17,7 @@ else here is research-only and is not deployed.
 | `tests/` | Unit tests. `csp-v1.test.ts` starts with the reference examples of criteria set v1 |
 | `scanner/scan.ts` | Bulk scanner: raw redirect chains and headers → `scan.jsonl` |
 | `scanner/classify.ts` | `scan.jsonl` → `main.csv` / `sub.csv`, coded with criteria set v1 |
+| `scanner/seal.ts` | RFC 3161 timestamp for `scan.jsonl` (no openssl needed) |
 | `data/`, `output/` | Site lists, raw scans and results. **Git-ignored; never committed** |
 
 ## Criteria version
@@ -69,15 +70,21 @@ Behaviour is described publicly at <https://headerlab.dev/research>.
 ### Sealing the raw data
 
 Right after a run, timestamp `scan.jsonl` with an RFC 3161 TSA so it can later
-be shown that the data was not changed after collection. Example with FreeTSA
-(any RFC 3161 TSA works):
+be shown that the data was not changed after collection. `seal.ts` needs only
+Node.js (default TSA: FreeTSA; any RFC 3161 TSA works via `--tsa`):
+
+```sh
+npm run seal -- --run <run>
+```
+
+It writes `scan.tsq` (request) and `scan.tsr` (signed response), checks that the
+response carries the file's hash and the request's nonce, and records the time in
+`manifest.json`. Verify the signature later on any machine with openssl
+(`cacert.pem` and `tsa.crt` from the TSA's website):
 
 ```sh
 cd research/output/<run>
-openssl ts -query -data scan.jsonl -sha256 -cert -out scan.tsq
-curl -s -H "Content-Type: application/timestamp-query" --data-binary @scan.tsq https://freetsa.org/tsr -o scan.tsr
 openssl ts -reply -in scan.tsr -text          # shows the time and the hash
-# verify later (cacert.pem and tsa.crt from the TSA's website):
 openssl ts -verify -data scan.jsonl -in scan.tsr -CAfile cacert.pem -untrusted tsa.crt
 ```
 
