@@ -141,7 +141,7 @@ async function main() {
   const req = buildRequest(hash, nonce);
   fs.writeFileSync(path.join(dir, `${stem}.tsq`), req);
 
-  const res = await fetch(values.tsa!, { method: 'POST', headers: { 'Content-Type': 'application/timestamp-query' }, body: req });
+  const res = await fetch(values.tsa!, { method: 'POST', headers: { 'Content-Type': 'application/timestamp-query' }, body: new Uint8Array(req) });
   if (!res.ok) throw new Error(`TSA answered HTTP ${res.status}`);
   const tsr = Buffer.from(await res.arrayBuffer());
   fs.writeFileSync(path.join(dir, `${stem}.tsr`), tsr);

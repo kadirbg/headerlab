@@ -15,7 +15,7 @@ import type { AddressInfo } from 'node:net';
 import { fetchChain, decodeBody, type FetchOptions } from '../scanner/http.ts';
 import { extractMetaCsp, extractLinkHosts, selectSubdomains, parseAttributes } from '../scanner/html.ts';
 import { parseCsv, toCsv } from '../scanner/csv.ts';
-import { classify } from '../scanner/classify.ts';
+import { accessClass, outsideDomain, classify } from '../scanner/classify.ts';
 import type { ScanRecord } from '../scanner/scan.ts';
 
 const opts: FetchOptions = { userAgent: 'test', timeoutMs: 1500, maxBodyBytes: 64 * 1024 };
@@ -243,6 +243,35 @@ test('classify: HSTS from the first HTTPS response, other headers from the final
 test('classify: unreachable site is kept as a row with the error', () => {
   const recs = [rec({ scheme: 'http', error: 'ENOTFOUND', hops: [] }), rec({ scheme: 'https', error: 'ENOTFOUND', hops: [] })];
   const { main } = classify(recs, new Map());
-  assert.equal(main[0].erisim, 'hata');
+  assert.equal(main[0].erisim, 'ulasilamadi');
   assert.equal(main[0].hata, 'ENOTFOUND');
+});
+
+test('classify: bot challenge and refusals are "engellendi", other errors "hata" (C3)', () => {
+  const challenge = [rec({ scheme: 'https', hops: [hop('https://ornek.com.tr/', 403, [['cf-mitigated', 'challenge'], ['X-Frame-Options', 'SAMEORIGIN']])], finalUrl: 'https://ornek.com.tr/', finalStatus: 403 })];
+  const { main } = classify(challenge, new Map());
+  assert.equal(main[0].erisim, 'engellendi');
+  assert.equal(main[0].xfo_var, undefined, 'challenge page headers are not coded');
+
+  const r400 = rec({ scheme: 'https', hops: [hop('https://ornek.com.tr/', 307), hop('https://www.ornek.com.tr/', 400)], finalUrl: 'https://www.ornek.com.tr/', finalStatus: 400 });
+  assert.equal(accessClass([r400]), 'engellendi');
+  const r404 = rec({ scheme: 'https', hops: [hop('https://ornek.com.tr/', 404)], finalUrl: 'https://ornek.com.tr/', finalStatus: 404 });
+  assert.equal(accessClass([r404]), 'hata');
+  const timeout = rec({ scheme: 'http', error: 'TIMEOUT', hops: [{ ...hop('http://ornek.com.tr/', 0), status: null, error: 'TIMEOUT' }] as never });
+  assert.equal(accessClass([timeout, r404]), 'hata');
+  assert.equal(accessClass([timeout]), 'ulasilamadi');
+});
+
+test('classify: a subdomain redirecting to another domain is flagged (C4)', () => {
+  const recs = [
+    rec({ scheme: 'https', hops: [hop('https://ornek.com.tr/', 200)], finalUrl: 'https://ornek.com.tr/', finalStatus: 200 }),
+    rec({ layer: 'sub', host: 'e-bayi.ornek.com.tr', scheme: 'https', hops: [hop('https://e-bayi.ornek.com.tr/', 301), hop('https://ebayi.org/', 200)], finalUrl: 'https://ebayi.org/', finalStatus: 200 }),
+    rec({ layer: 'sub', host: 'app.ornek.com.tr', scheme: 'https', hops: [hop('https://app.ornek.com.tr/', 200)], finalUrl: 'https://app.ornek.com.tr/', finalStatus: 200 }),
+  ];
+  const { main, sub } = classify(recs, new Map());
+  assert.equal(main[0].alan_disi, false);
+  assert.equal(sub.find(r => r.alt_alan === 'e-bayi.ornek.com.tr')!.alan_disi, true);
+  assert.equal(sub.find(r => r.alt_alan === 'app.ornek.com.tr')!.alan_disi, false);
+  assert.equal(outsideDomain('https://www.ornek.com.tr/x', 'ornek.com.tr'), false);
+  assert.equal(outsideDomain('https://ornek.com/', 'ornek.com.tr'), true);
 });
