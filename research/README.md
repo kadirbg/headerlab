@@ -19,6 +19,7 @@ else here is research-only and is not deployed.
 | `scanner/classify.ts` | `scan.jsonl` → `main.csv` / `sub.csv`, coded with criteria set v1 |
 | `scanner/seal.ts` | RFC 3161 timestamp for `scan.jsonl` (no openssl needed) |
 | `validation/` | Comparison with MDN HTTP Observatory and Google CSP Evaluator (own `package.json`) |
+| `analysis/retest.py` | Test-retest agreement between a re-measured subsample and the main results |
 | `analysis/analyze.py` | Rates with Wilson intervals, sector tests, comparison with 2016 (Python; `analysis/requirements.txt`) |
 | `data/`, `output/` | Site lists, raw scans and results. **Git-ignored; never committed** |
 
